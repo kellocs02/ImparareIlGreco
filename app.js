@@ -80,7 +80,7 @@ let tab = "home";
 function go(t) {
   tab = t;
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
-  ({ home: renderHome, lessons: renderLessons, review: startReview, quiz: startQuiz, alpha: renderAlpha })[t]();
+  ({ home: renderHome, lessons: renderLessons, review: startReview, quiz: startQuiz, alpha: renderAlpha, match: startMatch })[t]();
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
@@ -104,12 +104,14 @@ function renderHome() {
     <div class="chips">${chips}</div>
     <button class="big" id="goReview">Ripassa ora <span>${due} da fare</span></button>
     <button class="big alt" id="goQuiz">Fai un quiz <span>10 domande</span></button>
+    <button class="big alt" id="goMatch">Abbina le coppie <span>gioco</span></button>
     <button class="big alt" id="goLessons">Leggi le lezioni <span>4 livelli</span></button>
     <button class="big alt" id="goAlpha">Impara l'alfabeto <span>Α–Ω</span></button>
     <p class="hint">Consiglio: 10 minuti al giorno valgono più di un'ora una volta a settimana.</p>`;
   view.querySelectorAll(".chip").forEach((c) => (c.onclick = () => { state.cat = c.dataset.cat; save(); renderHome(); }));
   $("#goReview").onclick = () => go("review");
   $("#goQuiz").onclick = () => go("quiz");
+  $("#goMatch").onclick = () => go("match");
   $("#goAlpha").onclick = () => go("alpha");
   $("#goLessons").onclick = () => { lv = null; sec = null; go("lessons"); };
 }
@@ -164,17 +166,27 @@ function startReview() {
   show();
 }
 
-// ---------- Quiz ----------
+// ---------- Quiz (4 tipi di domanda) ----------
+// Confronto tollerante: ignora accenti, maiuscole, spazi e punteggiatura; ς = σ.
+const norm = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+  .replace(/ς/g, "σ").replace(/[^a-z0-9α-ω]/g, "");
+const sameAnswer = (input, w) => { const n = norm(input); return n !== "" && (n === norm(w.tr) || n === norm(w.gr)); };
+
 function startQuiz() {
   const p = pool();
   if (p.length < 4) { view.innerHTML = `<p class="hint">Serve un tema con almeno 4 parole. Scegli "Tutte" nella home.</p>`; return; }
-  const qs = shuffle(p).slice(0, 10).map((w, n) => {
-    const toGr = n % 2 === 1; // alterna greco→italiano e italiano→greco
+  // gr2it: greco→italiano · it2gr: italiano→greco · listen: ascolto→italiano · type: scrivi la risposta
+  const kinds = "speechSynthesis" in window ? ["gr2it", "it2gr", "listen", "type"] : ["gr2it", "it2gr", "type"];
+  const words = shuffle(p).slice(0, 10);
+  const order = shuffle(words.map((_, n) => kinds[n % kinds.length]));
+  const qs = words.map((w, n) => {
+    const kind = order[n];
     const wrong = shuffle(WORDS.filter((x) => x.id !== w.id && (x.cat === w.cat || p.length < 8))).slice(0, 3);
     const extra = shuffle(WORDS.filter((x) => x.id !== w.id && !wrong.includes(x))).slice(0, 3 - wrong.length);
-    return { w, toGr, opts: shuffle([w].concat(wrong, extra)) };
+    return { w, kind, opts: shuffle([w].concat(wrong, extra)) };
   });
   let i = 0, score = 0;
+  const LABEL = { gr2it: "Che cosa significa?", it2gr: "Come si dice in greco?", listen: "Ascolta e scegli il significato", type: "Scrivilo in greco o con lettere latine" };
   const show = () => {
     if (i >= qs.length) {
       view.innerHTML = `<div class="done"><div class="emoji">${score >= 8 ? "🏆" : score >= 5 ? "👍" : "💪"}</div>
@@ -183,31 +195,99 @@ function startQuiz() {
       $("#again").onclick = startQuiz; $("#home").onclick = () => go("home");
       return;
     }
-    const q = qs[i];
+    const q = qs[i], w = q.w;
+    const main = q.kind === "listen" ? "🔊" : esc(q.kind === "gr2it" ? w.gr : w.it);
+    const spk = q.kind === "gr2it" || q.kind === "listen" ? `<button class="spk" id="spk" aria-label="Ascolta">🔊</button>` : "";
+    const body = q.kind === "type"
+      ? `<div class="typebox"><input id="ans" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Scrivi qui la risposta">
+           <button class="big" id="chk" style="justify-content:center">Controlla</button></div>`
+      : `<div class="opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}">${esc(q.kind === "it2gr" ? o.gr : o.it)}</button>`).join("")}</div>`;
     view.innerHTML = `
       <div class="progress"><div style="width:${(i / qs.length) * 100}%"></div></div>
       <p class="count">Domanda ${i + 1} / ${qs.length}</p>
       <div class="card q">
-        <div class="prompt">${q.toGr ? "Come si dice in greco?" : "Che cosa significa?"}</div>
-        <div class="gr">${esc(q.toGr ? q.w.it : q.w.gr)}</div>
-        ${q.toGr ? "" : `<button class="spk" id="spk" aria-label="Ascolta">🔊</button>`}
-      </div>
-      <div class="opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}">${esc(q.toGr ? o.gr : o.it)}</button>`).join("")}</div>
-      <p class="fb" id="fb"></p>`;
-    if (!q.toGr) $("#spk").onclick = () => speak(q.w.gr);
-    view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
-      const chosen = q.opts[+b.dataset.k], ok = chosen.id === q.w.id;
-      view.querySelectorAll(".opt").forEach((x) => { x.disabled = true; if (q.opts[+x.dataset.k].id === q.w.id) x.classList.add("ok"); });
-      if (!ok) b.classList.add("bad");
+        <div class="prompt">${LABEL[q.kind]}</div>
+        <div class="gr">${main}</div>${spk}
+      </div>${body}<p class="fb" id="fb"></p>`;
+    if (spk) $("#spk").onclick = () => speak(w.gr);
+    if (q.kind === "listen") speak(w.gr);
+
+    const reveal = (ok) => {
       if (ok) score++;
-      grade(q.w, ok);
-      speak(q.w.gr);
-      $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ Era"} <b>${esc(q.w.gr)}</b> <i>(${esc(q.w.tr)})</i> = ${esc(q.w.it)}
+      grade(w, ok);
+      speak(w.gr);
+      $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ Era"} <b>${esc(w.gr)}</b> <i>(${esc(w.tr)})</i> = ${esc(w.it)}
         <button class="big" id="nx">${i + 1 === qs.length ? "Vedi il risultato" : "Avanti"}</button>`;
       $("#nx").onclick = () => { i++; show(); };
-    }));
+    };
+
+    if (q.kind === "type") {
+      const inp = $("#ans");
+      let answered = false;
+      const check = () => {
+        if (answered) return;
+        if (!inp.value.trim()) return toast("Scrivi una risposta, anche solo con lettere latine");
+        answered = true; inp.disabled = true; $("#chk").hidden = true;
+        const ok = sameAnswer(inp.value, w);
+        inp.classList.add(ok ? "ok" : "bad");
+        reveal(ok);
+        $("#nx").focus();
+      };
+      $("#chk").onclick = check;
+      inp.onkeydown = (e) => { if (e.key === "Enter") check(); };
+    } else {
+      view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+        const ok = q.opts[+b.dataset.k].id === w.id;
+        view.querySelectorAll(".opt").forEach((x) => { x.disabled = true; if (q.opts[+x.dataset.k].id === w.id) x.classList.add("ok"); });
+        if (!ok) b.classList.add("bad");
+        reveal(ok);
+      }));
+    }
   };
   show();
+}
+
+// ---------- Abbina le coppie ----------
+function startMatch() {
+  const p = pool();
+  if (p.length < 4) { view.innerHTML = `<p class="hint">Serve un tema con almeno 4 parole. Scegli "Tutte" nella home.</p>`; return; }
+  const ws = shuffle(p).slice(0, Math.min(6, p.length));
+  const left = shuffle(ws), right = shuffle(ws);
+  const missed = new Set();
+  let sel = null, found = 0, errors = 0;
+  view.innerHTML = `<h1>Abbina <small>tocca una parola greca e il suo significato</small></h1>
+    <div class="match">
+      <div>${left.map((w) => `<button class="mt" data-side="l" data-id="${w.id}">${esc(w.gr)}</button>`).join("")}</div>
+      <div>${right.map((w) => `<button class="mt" data-side="r" data-id="${w.id}">${esc(w.it)}</button>`).join("")}</div>
+    </div><p class="count" id="cnt">0 / ${ws.length} coppie</p><div id="end"></div>`;
+  const finish = () => {
+    ws.forEach((w) => grade(w, !missed.has(w.id)));
+    $("#end").innerHTML = `<div class="done"><div class="emoji">${errors === 0 ? "🏆" : errors <= 3 ? "👍" : "💪"}</div>
+      <h2>${errors === 0 ? "Nessun errore!" : errors === 1 ? "1 errore" : errors + " errori"}</h2>
+      <button class="big" id="again">Altro giro</button><button class="big alt" id="home">Home</button></div>`;
+    $("#again").onclick = startMatch; $("#home").onclick = () => go("home");
+  };
+  view.querySelectorAll(".mt").forEach((b) => (b.onclick = () => {
+    if (b.disabled) return;
+    const side = b.dataset.side, id = b.dataset.id;
+    if (side === "l") speak(WORDS.find((x) => x.id === id).gr);
+    if (!sel || sel.side === side) { // nuova selezione, o cambio di scelta sullo stesso lato
+      if (sel) sel.el.classList.remove("sel");
+      sel = { side, id, el: b }; b.classList.add("sel");
+      return;
+    }
+    const prev = sel; sel = null;
+    prev.el.classList.remove("sel");
+    if (prev.id === id) {
+      [prev.el, b].forEach((x) => { x.classList.add("ok"); x.disabled = true; });
+      found++; $("#cnt").textContent = `${found} / ${ws.length} coppie`;
+      if (found === ws.length) finish();
+    } else {
+      errors++; missed.add(prev.id); missed.add(id);
+      [prev.el, b].forEach((x) => x.classList.add("bad"));
+      setTimeout(() => [prev.el, b].forEach((x) => x.classList.remove("bad")), 500);
+    }
+  }));
 }
 
 // ---------- Alfabeto ----------

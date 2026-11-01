@@ -77,3 +77,15 @@ nav button i{font-style:normal;font-size:22px}nav button.on{color:var(--blue);fo
 .dl .i{display:block;color:var(--muted);margin-top:4px;font-size:15px}
 .pager{display:flex;justify-content:space-between;gap:10px;margin-top:20px}
 .pager button{flex:1;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card);font-weight:600}
+/* Quiz: risposta scritta */
+.typebox{display:grid;gap:10px;margin-top:16px}
+.typebox input{width:100%;padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--fg);font:inherit;font-size:20px}
+.typebox input:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.typebox input.ok{background:var(--okbg);border-color:var(--ok)}.typebox input.bad{background:var(--badbg);border-color:var(--bad)}
+/* Abbina le coppie */
+.match{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.match>div{display:grid;gap:10px;align-content:start}
+.mt{padding:14px 10px;border:1px solid var(--line);border-radius:14px;background:var(--card);font-size:17px;text-align:center;word-break:break-word}
+.mt.sel{border-color:var(--blue);background:var(--blue2)}
+.mt.ok{background:var(--okbg);border-color:var(--ok);opacity:.7}
+.mt.bad{background:var(--badbg);border-color:var(--bad)}
