@@ -5,7 +5,7 @@ const $ = (s) => document.querySelector(s);
 const view = $("#view");
 
 const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 864e5);
-const fresh = () => ({ cards: {}, streak: { last: -1, count: 0 }, reviews: 0, cat: "tutte" });
+const fresh = () => ({ cards: {}, streak: { last: -1, count: 0 }, reviews: 0, cat: "tutte", done: {}, last: null, added: {}, pu: {}, pl: {}, free: false });
 
 function load() {
   try { return Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY)) || {}); }
@@ -16,6 +16,20 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catc
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// ---------- Mazzo: parole base + parole delle lezioni aggiunte al ripasso ----------
+const BASE_WORDS = WORDS.slice();
+const isShort = (r) => r[0].trim().split(/\s+/).length <= 4;
+function lessonWords() {
+  const out = [];
+  LEVELS.forEach((l, a) => l.sections.forEach((s, b) => {
+    if (!state.added[a + "-" + b]) return;
+    (s.rows || []).forEach((r, i) => { if (isShort(r)) out.push({ id: `L${a}-${b}-${i}`, cat: "lezioni", gr: r[0], tr: r[1], it: r[2] }); });
+  }));
+  return out;
+}
+function syncDeck() { WORDS.length = 0; WORDS.push(...BASE_WORDS, ...lessonWords()); }
+syncDeck();
 
 // ---------- Audio (sintesi vocale del telefono) ----------
 function greekVoice() {
@@ -77,10 +91,12 @@ function currentStreak() {
 
 // ---------- Navigazione ----------
 let tab = "home";
+const NAV_OF = { quiz: "train", match: "train" }; // schermate che vivono sotto la tab "Allenati"
 function go(t) {
   tab = t;
-  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
-  ({ home: renderHome, lessons: renderLessons, review: startReview, quiz: startQuiz, alpha: renderAlpha, match: startMatch })[t]();
+  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === (NAV_OF[t] || t)));
+  // renderHome (il percorso a livelli) è in path.js
+  ({ home: renderHome, train: renderTrain, lessons: renderLessons, review: startReview, quiz: startQuiz, alpha: renderAlpha, match: startMatch })[t]();
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
@@ -88,13 +104,16 @@ document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
   go(b.dataset.tab);
 }));
 
-// ---------- Home ----------
-function renderHome() {
+// ---------- Allenati (la vecchia home: esercizi liberi) ----------
+function renderTrain() {
+  if (state.cat === "lezioni" && !WORDS.some((w) => w.cat === "lezioni")) state.cat = "tutte";
   const due = pool().filter(isDue).length;
-  const chips = [["tutte", "Tutte", "📚"]].concat(CATS.map((c) => [c.id, c.nome, c.emoji]))
+  const L = state.last && LEVELS[state.last.lv] && LEVELS[state.last.lv].sections[state.last.sec];
+  const lastBtn = L ? `<button class="big alt" id="goLast">Continua la lezione <span>${esc(L.t)}</span></button>` : "";
+  const chips = [["tutte", "Tutte", "📚"]].concat(CATS.map((c) => [c.id, c.nome, c.emoji])).concat(WORDS.some((w) => w.cat === "lezioni") ? [["lezioni", "Dalle lezioni", "📖"]] : [])
     .map(([id, n, e]) => `<button class="chip ${state.cat === id ? "on" : ""}" data-cat="${id}">${e} ${esc(n)}</button>`).join("");
   view.innerHTML = `
-    <h1>Ελληνικά <small>greco moderno</small></h1>
+    <h1>Allenati <small>esercizi liberi, quando e come vuoi</small></h1>
     <div class="stats">
       <div><b>${currentStreak()}</b><span>giorni di fila 🔥</span></div>
       <div><b>${learnedCount()}<i>/${WORDS.length}</i></b><span>parole imparate</span></div>
@@ -103,15 +122,21 @@ function renderHome() {
     <h2>Scegli un tema</h2>
     <div class="chips">${chips}</div>
     <button class="big" id="goReview">Ripassa ora <span>${due} da fare</span></button>
+    ${lastBtn}
     <button class="big alt" id="goQuiz">Fai un quiz <span>10 domande</span></button>
     <button class="big alt" id="goMatch">Abbina le coppie <span>gioco</span></button>
-    <button class="big alt" id="goLessons">Leggi le lezioni <span>4 livelli</span></button>
+    <button class="big alt" id="goFill">Completa la frase <span>dalle lezioni</span></button>
+    <button class="big alt" id="goConj">Allena i verbi <span>coniugazioni</span></button>
+    <button class="big alt" id="goLessons">Leggi le lezioni <span>${LEVELS.length} livelli</span></button>
     <button class="big alt" id="goAlpha">Impara l'alfabeto <span>Α–Ω</span></button>
     <p class="hint">Consiglio: 10 minuti al giorno valgono più di un'ora una volta a settimana.</p>`;
-  view.querySelectorAll(".chip").forEach((c) => (c.onclick = () => { state.cat = c.dataset.cat; save(); renderHome(); }));
+  view.querySelectorAll(".chip").forEach((c) => (c.onclick = () => { state.cat = c.dataset.cat; save(); renderTrain(); }));
   $("#goReview").onclick = () => go("review");
   $("#goQuiz").onclick = () => go("quiz");
   $("#goMatch").onclick = () => go("match");
+  $("#goConj").onclick = () => startConj(LEVELS.flatMap((l) => l.sections), () => go("train"), "Allenati");
+  $("#goFill").onclick = () => startFill(LEVELS.flatMap((l) => l.sections), () => go("train"), "Allenati");
+  if ($("#goLast")) $("#goLast").onclick = () => { lv = state.last.lv; sec = state.last.sec; go("lessons"); };
   $("#goAlpha").onclick = () => go("alpha");
   $("#goLessons").onclick = () => { lv = null; sec = null; go("lessons"); };
 }
@@ -191,8 +216,8 @@ function startQuiz() {
     if (i >= qs.length) {
       view.innerHTML = `<div class="done"><div class="emoji">${score >= 8 ? "🏆" : score >= 5 ? "👍" : "💪"}</div>
         <h2>${score} / ${qs.length}</h2><p>${score >= 8 ? "Bravissimo!" : score >= 5 ? "Bene, continua così!" : "Ripassa ancora un po' e riprova."}</p>
-        <button class="big" id="again">Rifai il quiz</button><button class="big alt" id="home">Home</button></div>`;
-      $("#again").onclick = startQuiz; $("#home").onclick = () => go("home");
+        <button class="big" id="again">Rifai il quiz</button><button class="big alt" id="home">Allenati</button></div>`;
+      $("#again").onclick = startQuiz; $("#home").onclick = () => go("train");
       return;
     }
     const q = qs[i], w = q.w;
@@ -264,8 +289,8 @@ function startMatch() {
     ws.forEach((w) => grade(w, !missed.has(w.id)));
     $("#end").innerHTML = `<div class="done"><div class="emoji">${errors === 0 ? "🏆" : errors <= 3 ? "👍" : "💪"}</div>
       <h2>${errors === 0 ? "Nessun errore!" : errors === 1 ? "1 errore" : errors + " errori"}</h2>
-      <button class="big" id="again">Altro giro</button><button class="big alt" id="home">Home</button></div>`;
-    $("#again").onclick = startMatch; $("#home").onclick = () => go("home");
+      <button class="big" id="again">Altro giro</button><button class="big alt" id="home">Allenati</button></div>`;
+    $("#again").onclick = startMatch; $("#home").onclick = () => go("train");
   };
   view.querySelectorAll(".mt").forEach((b) => (b.onclick = () => {
     if (b.disabled) return;
@@ -288,6 +313,164 @@ function startMatch() {
       setTimeout(() => [prev.el, b].forEach((x) => x.classList.remove("bad")), 500);
     }
   }));
+}
+
+// ---------- Completa la frase (generato dalle lezioni) ----------
+// @fill-pure-start
+const coreOf = (t) => t.replace(/[.,!?;:·«»"“”()…]/g, "");
+const isWord = (c) => /^\p{L}+$/u.test(c);
+function sentencesIn(secs) {
+  const out = [];
+  secs.forEach((s) => {
+    (s.dialog || []).forEach((d) => out.push({ gr: d[1], it: d[2], tr: "" }));
+    (s.rows || []).forEach((r) => {
+      if (/[\/→…(]/.test(r[0]) || r[0].trim().split(/\s+/).length < 3) return;
+      out.push({ gr: r[0], it: r[2], tr: r[1] });
+    });
+  });
+  return out;
+}
+let _cores = null;
+function allCores() {
+  if (!_cores) {
+    const m = new Map();
+    sentencesIn(LEVELS.flatMap((l) => l.sections)).forEach((s) =>
+      s.gr.split(/\s+/).map(coreOf).filter((c) => isWord(c) && [...c].length >= 3).forEach((c) => m.set(norm(c), c)));
+    _cores = [...m.values()];
+  }
+  return _cores;
+}
+function makeFillQs(secs, n = 8) {
+  const qs = [];
+  shuffle(sentencesIn(secs)).forEach((s) => {
+    if (qs.length >= n) return;
+    const toks = s.gr.split(/\s+/);
+    const pick = (min) => toks.map((t, i) => [i, coreOf(t)]).filter(([, c]) => isWord(c) && [...c].length >= min);
+    const cand = pick(4).length ? pick(4) : pick(3);
+    if (!cand.length) return;
+    const [k, ans] = shuffle(cand)[0];
+    const cap = ans[0] !== ans[0].toLowerCase();
+    const fit = (w) => (cap ? w[0].toUpperCase() : w[0].toLowerCase()) + w.slice(1);
+    const here = new Set(toks.map((t) => norm(coreOf(t))));
+    const len = [...ans].length;
+    const pool = allCores().filter((c) => !here.has(norm(c)));
+    const d = shuffle(pool.filter((c) => Math.abs([...c].length - len) <= 2)).concat(shuffle(pool))
+      .filter((c, i, arr) => arr.indexOf(c) === i).slice(0, 3).map(fit);
+    if (d.length < 3) return;
+    qs.push({ s, ans, text: toks.map((t, i) => (i === k ? t.replace(ans, "_____") : t)).join(" "), opts: shuffle([ans].concat(d)) });
+  });
+  return qs;
+}
+// @fill-pure-end
+
+function startFill(secs, back, backLabel) {
+  const qs = makeFillQs(secs);
+  if (qs.length < 3) return toast("Servono almeno 3 frasi per questo esercizio");
+  let i = 0, score = 0;
+  const show = () => {
+    if (i >= qs.length) {
+      view.innerHTML = `<div class="done"><div class="emoji">${score >= qs.length * 0.8 ? "🏆" : score >= qs.length / 2 ? "👍" : "💪"}</div>
+        <h2>${score} / ${qs.length}</h2><p>${score >= qs.length * 0.8 ? "Bravissimo!" : "Rileggi la lezione e riprova."}</p>
+        <button class="big" id="again">Rifai</button><button class="big alt" id="bk2">${esc(backLabel)}</button></div>`;
+      $("#again").onclick = () => startFill(secs, back, backLabel); $("#bk2").onclick = back;
+      return;
+    }
+    const q = qs[i];
+    view.innerHTML = `
+      <div class="progress"><div style="width:${(i / qs.length) * 100}%"></div></div>
+      <p class="count">Frase ${i + 1} / ${qs.length}</p>
+      <div class="card q"><div class="prompt">Completa la frase</div>
+        <div class="gr sm">${esc(q.text)}</div><div class="it sm">${esc(q.s.it)}</div></div>
+      <div class="opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}">${esc(o)}</button>`).join("")}</div>
+      <p class="fb" id="fb"></p>`;
+    view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+      const ok = q.opts[+b.dataset.k] === q.ans;
+      view.querySelectorAll(".opt").forEach((x) => { x.disabled = true; if (q.opts[+x.dataset.k] === q.ans) x.classList.add("ok"); });
+      if (!ok) b.classList.add("bad"); else score++;
+      state.reviews++; touchStreak(); save();
+      speak(q.s.gr);
+      $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ La parola era " + esc(q.ans) + "."}<br><b>${esc(q.s.gr)}</b>${q.s.tr ? ` <i>(${esc(q.s.tr)})</i>` : ""}
+        <button class="big" id="nx">${i + 1 === qs.length ? "Vedi il risultato" : "Avanti"}</button>`;
+      $("#nx").onclick = () => { i++; show(); };
+    }));
+  };
+  show();
+}
+
+// ---------- Allenatore di coniugazioni (dalle tabelle delle lezioni) ----------
+// @conj-pure-start
+function makeConjQs(secs, n = 10) {
+  const items = [];
+  secs.forEach((s) => { if (s.conj) s.conj.rows.forEach((r, i) => { for (let j = 1; j < r.length; j++) items.push({ s, r, i, j }); }); });
+  const qs = [];
+  shuffle(items).forEach(({ s, r, i, j }) => {
+    if (qs.length >= n) return;
+    const ans = r[j], pool = [];
+    s.conj.rows.forEach((rr, ii) => { if (ii !== i) pool.push(rr[j]); }); // altre persone, stessa colonna
+    for (let jj = 1; jj < r.length; jj++) if (jj !== j) pool.push(r[jj]); // stessa persona, altre colonne
+    const seen = new Set([norm(ans[0])]);
+    const d = shuffle(pool).filter((c) => !seen.has(norm(c[0])) && seen.add(norm(c[0]))).slice(0, 3);
+    if (d.length < 3) return;
+    qs.push({ pron: r[0], col: s.conj.head[j], ans, opts: shuffle([ans].concat(d)) });
+  });
+  return qs;
+}
+// @conj-pure-end
+
+function startConj(secs, back, backLabel) {
+  const qs = makeConjQs(secs);
+  if (qs.length < 3) return toast("Servono almeno 3 forme per questo esercizio");
+  let i = 0, score = 0;
+  const show = () => {
+    if (i >= qs.length) {
+      view.innerHTML = `<div class="done"><div class="emoji">${score >= qs.length * 0.8 ? "🏆" : score >= qs.length / 2 ? "👍" : "💪"}</div>
+        <h2>${score} / ${qs.length}</h2><p>${score >= qs.length * 0.8 ? "Bravissimo!" : "Ripassa la tabella e riprova."}</p>
+        <button class="big" id="again">Rifai</button><button class="big alt" id="bk2">${esc(backLabel)}</button></div>`;
+      $("#again").onclick = () => startConj(secs, back, backLabel); $("#bk2").onclick = back;
+      return;
+    }
+    const q = qs[i], typed = i % 2 === 1;
+    view.innerHTML = `
+      <div class="progress"><div style="width:${(i / qs.length) * 100}%"></div></div>
+      <p class="count">Forma ${i + 1} / ${qs.length}</p>
+      <div class="card q"><div class="prompt">Coniuga: ${esc(q.col)}</div>
+        <div class="gr${q.pron[0].length > 8 ? " sm" : ""}">${esc(q.pron[0])}</div><div class="it sm">${esc(q.pron[2])}</div></div>
+      ${typed
+        ? `<div class="typebox"><input id="ans" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Scrivi in greco o come si pronuncia">
+           <button class="big" id="chk" style="justify-content:center">Controlla</button></div>`
+        : `<div class="opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}">${esc(o[0])}</button>`).join("")}</div>`}
+      <p class="fb" id="fb"></p>`;
+    const reveal = (ok) => {
+      if (ok) score++;
+      state.reviews++; touchStreak(); save();
+      speak(q.ans[0]);
+      $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ Era"} <b>${esc(q.ans[0])}</b> <i>(${esc(q.ans[1])})</i>
+        <button class="big" id="nx">${i + 1 === qs.length ? "Vedi il risultato" : "Avanti"}</button>`;
+      $("#nx").onclick = () => { i++; show(); };
+    };
+    if (typed) {
+      const inp = $("#ans");
+      let answered = false;
+      const check = () => {
+        if (answered) return;
+        if (!inp.value.trim()) return toast("Scrivi una risposta, anche solo con lettere latine");
+        answered = true; inp.disabled = true; $("#chk").hidden = true;
+        const ok = sameAnswer(inp.value, { gr: q.ans[0], tr: q.ans[1] });
+        inp.classList.add(ok ? "ok" : "bad");
+        reveal(ok); $("#nx").focus();
+      };
+      $("#chk").onclick = check;
+      inp.onkeydown = (e) => { if (e.key === "Enter") check(); };
+    } else {
+      view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+        const ok = q.opts[+b.dataset.k] === q.ans;
+        view.querySelectorAll(".opt").forEach((x) => { x.disabled = true; if (q.opts[+x.dataset.k] === q.ans) x.classList.add("ok"); });
+        if (!ok) b.classList.add("bad");
+        reveal(ok);
+      }));
+    }
+  };
+  show();
 }
 
 // ---------- Alfabeto ----------
@@ -324,7 +507,7 @@ function lessonLevels() {
   view.innerHTML = `<h1>Lezioni <small>leggi parole e frasi, livello per livello</small></h1>
     <p class="hint">Tocca una riga per ascoltare la pronuncia. Ogni livello corrisponde a una dispensa.</p>` +
     LEVELS.map((l, i) => `<button class="lvl" data-i="${i}"><b>Livello ${l.n}</b><span>${esc(l.sub)}</span>
-      <em>${l.sections.length} sezioni · ${countRows(l)} parole e frasi</em></button>`).join("");
+      <em>${l.sections.length} sezioni · ${countRows(l)} parole e frasi · ${l.sections.filter((_, j) => state.done[i + "-" + j]).length} completate</em></button>`).join("");
   view.querySelectorAll(".lvl").forEach((b) => (b.onclick = () => openLessons(+b.dataset.i, null)));
 }
 
@@ -332,13 +515,17 @@ function lessonSections() {
   const l = LEVELS[lv];
   view.innerHTML = `<button class="back" id="bk">← Tutti i livelli</button>
     <h1>Livello ${l.n} <small>${esc(l.sub)}</small></h1>` +
-    l.sections.map((s, i) => `<button class="sec" data-i="${i}"><span>${esc(s.t)}</span><i>›</i></button>`).join("");
+    l.sections.map((s, i) => `<button class="sec" data-i="${i}"><span>${esc(s.t)}</span><i${state.done[lv + "-" + i] ? ' class="done"' : ""}>${state.done[lv + "-" + i] ? "✓" : "›"}</i></button>`).join("")
+    + (sentencesIn(l.sections).length >= 5 ? `<button class="big alt" id="fillLv" style="margin-top:16px">Completa la frase su tutto il livello <span></span></button>` : "");
   $("#bk").onclick = () => openLessons(null, null);
+  if ($("#fillLv")) $("#fillLv").onclick = () => startFill(l.sections, () => openLessons(lv, null), "Torna al livello");
   view.querySelectorAll(".sec").forEach((b) => (b.onclick = () => openLessons(lv, +b.dataset.i)));
 }
 
 function lessonSection() {
   const l = LEVELS[lv], s = l.sections[sec];
+  state.last = { lv, sec }; save();
+  const markDone = () => { state.done[lv + "-" + sec] = 1; save(); };
   const q = []; // testi da pronunciare: ogni elemento cliccabile ha un indice in q
   const sp = (t) => q.push(t) - 1;
   const cell = (c) => typeof c === "string"
@@ -362,16 +549,30 @@ function lessonSection() {
       <button class="big alt" id="playAll">▶ Ascolta tutto il dialogo</button>`;
     s._start = start;
   }
+  const key = lv + "-" + sec, nw = (s.rows || []).filter(isShort).length;
+  const addTxt = () => (state.added[key] ? "✓ Nel ripasso (tocca per togliere)" : "Aggiungi al ripasso") + " ";
+  if (nw) h += `<button class="big alt" id="addRev">${addTxt()}<span>${nw} voci</span></button>`;
+  if (s.conj) h += `<button class="big alt" id="conjEx">Esercizio: coniuga questo verbo <span>6 persone</span></button>`;
+  const nf = sentencesIn([s]).length;
+  if (nf >= 3) h += `<button class="big alt" id="fill">Esercizio: completa la frase <span>${Math.min(nf, 8)} frasi</span></button>`;
   h += `<div class="pager">${sec > 0 ? `<button id="prev">← Precedente</button>` : "<span></span>"}
     ${sec < l.sections.length - 1 ? `<button id="next">Successiva →</button>` : `<button id="done">Fine livello ✓</button>`}</div>`;
   view.innerHTML = h;
 
   view.querySelectorAll("[data-s]").forEach((el) => (el.onclick = () => speak(q[+el.dataset.s])));
   $("#bk").onclick = () => openLessons(lv, null);
+  if ($("#addRev")) $("#addRev").onclick = (e) => {
+    if (state.added[key]) delete state.added[key]; else state.added[key] = 1;
+    save(); syncDeck();
+    e.currentTarget.firstChild.nodeValue = addTxt();
+    if (state.added[key]) toast("Aggiunte al ripasso: torneranno a intervalli");
+  };
+  if ($("#conjEx")) $("#conjEx").onclick = () => startConj([s], () => openLessons(lv, sec), "Torna alla lezione");
+  if ($("#fill")) $("#fill").onclick = () => startFill([s], () => openLessons(lv, sec), "Torna alla lezione");
   if (s.dialog) $("#playAll").onclick = () => speakMany(q.slice(s._start));
   if ($("#prev")) $("#prev").onclick = () => openLessons(lv, sec - 1);
-  if ($("#next")) $("#next").onclick = () => openLessons(lv, sec + 1);
-  if ($("#done")) $("#done").onclick = () => openLessons(lv, null);
+  if ($("#next")) $("#next").onclick = () => { markDone(); openLessons(lv, sec + 1); };
+  if ($("#done")) $("#done").onclick = () => { markDone(); openLessons(lv, null); };
 }
 
 // ---------- Avvio ----------
