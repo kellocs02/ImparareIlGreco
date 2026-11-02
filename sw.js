@@ -1,4 +1,4 @@
-const CACHE = "ellinika-v12";
+const CACHE = "ellinika-v14";
 const FILES = ["./", "index.html", "style.css", "data.js", "lessons.js", "units.js", "path.js", "progress.js", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {

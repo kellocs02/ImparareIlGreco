@@ -65,6 +65,8 @@ const ACH = [
   A("u10", "🧭", "Dieci unità", "Supera 10 unità", passedUnits, 10),
   A("u25", "⛰️", "Venticinque unità", "Supera 25 unità", passedUnits, 25),
   A("uall", "🗺️", "Tutte le unità", "Supera tutte le unità del percorso", passedUnits, totalUnits()),
+  A("al12", "🔤", "Dodici lettere", "Impara 12 lettere dell'alfabeto", () => alphaLearned(), 12),
+  A("al24", "🔠", "Alfabeto completo", "Impara tutte le 24 lettere", () => alphaLearned(), 24),
   ...LEVELS.map((l, a) => A("lv" + a, "🏁", `Livello ${l.n} superato`, `Supera il test finale del livello ${l.n}`, () => (state.pl[a] ? 1 : 0), 1)),
   A("p1", "💯", "Test perfetto", "Chiudi un test al 100%", () => state.perf || 0, 1),
   A("p5", "💎", "Cinque test perfetti", "Chiudi 5 test al 100%", () => state.perf || 0, 5),
@@ -232,7 +234,7 @@ function restoreFrom(text) {
   if (!confirm(`Ripristinare il backup${when ? " del " + when : ""}?\n${s.reviews | 0} risposte, ${units} unità superate.\nI progressi attuali su questo telefono verranno sostituiti.`)) return;
   try { localStorage.setItem(KEY + "-prima-del-ripristino", JSON.stringify(state)); } catch (e) {} // rete di sicurezza
   state = Object.assign(fresh(), s);
-  ["cards", "added", "pu", "pl", "log", "ach", "done", "err"].forEach((k) => { if (!state[k] || typeof state[k] !== "object") state[k] = {}; });
+  ["cards", "added", "pu", "pl", "log", "ach", "done", "err", "al"].forEach((k) => { if (!state[k] || typeof state[k] !== "object") state[k] = {}; });
   state.streak = Object.assign({ last: -1, count: 0 }, state.streak);
   save(); syncDeck(); progressCheck(true);
   toast("Progressi ripristinati ✓");
@@ -335,4 +337,143 @@ function renderDict() {
   $("#dq").oninput = show;
   show();
   $("#dq").focus();
+}
+
+// ---------- Alfabeto: flashcard e quiz delle lettere ----------
+// state.al[indice lettera in ALPHABET] = { box, due }: stesso ripasso a scatole delle parole.
+const ALPHA_IT = ["alfa", "vita", "gamma", "delta", "epsilon", "zita", "ita", "thita", "iota", "kappa", "lambda", "mi", "ni", "xi", "omicron", "pi", "ro", "sigma", "tau", "ipsilon", "fi", "chi", "psi", "omega"];
+// Lettere facili da confondere (per aspetto o per suono): servono a scegliere le risposte sbagliate più insidiose.
+const ALPHA_GROUPS = [[1, 12, 6], [16, 15], [19, 12], [21, 22, 13], [14, 7, 23], [8, 6, 19], [10, 0], [5, 13, 4], [20, 22]];
+const alphaBox = (k) => (state.al[k] ? state.al[k].box : -1);
+const alphaLearned = () => ALPHABET.filter((_, k) => alphaBox(k) >= 3).length;
+const alphaDue = () => ALPHABET.filter((_, k) => !state.al[k] || state.al[k].due <= today()).length;
+const lower = (k) => ALPHABET[k][1].split(" ")[0];
+const both = (k) => `${ALPHABET[k][0]} ${lower(k)}`;
+
+// ok = true avanza la scatola solo se la lettera era da ripassare; sbagliare la riporta sempre all'inizio.
+function gradeLetter(k, ok) {
+  const c = state.al[k] || { box: 0, due: 0 };
+  if (ok) { if (state.al[k] && c.due > today()) return; c.box = Math.min(c.box + 1, 5); }
+  else c.box = 0;
+  c.due = today() + INTERVALS[c.box];
+  state.al[k] = c;
+}
+
+function alphaOpts(i) { // 4 scelte: la giusta, fino a 2 lettere simili, il resto a caso
+  const sim = shuffle([...new Set(ALPHA_GROUPS.filter((g) => g.includes(i)).flat())].filter((x) => x !== i));
+  const rest = shuffle(ALPHABET.map((_, k) => k).filter((k) => k !== i && !sim.includes(k)));
+  return shuffle([i, ...sim.slice(0, 2), ...rest].slice(0, 4));
+}
+
+function voiceNote() { // il browser usa le voci del dispositivo: se manca quella greca, spiega come aggiungerla
+  if (!("speechSynthesis" in window) || !speechSynthesis.getVoices().length || greekVoice()) return "";
+  return `<p class="note">🔊 Su questo dispositivo manca la voce greca, quindi la pronuncia non è corretta. Aggiungila nelle impostazioni di sistema: <b>Windows</b> Lingua e area geografica → Greco → Voce · <b>Android</b> Sintesi vocale → Google → Greco · <b>iPhone</b> Accessibilità → Contenuto letto → Voci → Greco.</p>`;
+}
+function alphaHub() {
+  const n = alphaLearned(), d = alphaDue();
+  return voiceNote() + `<div class="goal" style="cursor:default;margin-top:0"><div><b>Impara l'alfabeto</b><span>${n} / ${ALPHABET.length} lettere</span></div>
+    <div class="progress"><div style="width:${Math.round((n / ALPHABET.length) * 100)}%"></div></div></div>
+    <button class="big" id="alCards">Flashcard <span>${d} da fare</span></button>
+    <button class="big alt" id="alQuiz">Quiz delle lettere <span>senza fine</span></button>`;
+}
+function bindAlpha() {
+  $("#alCards").onclick = startAlphaCards;
+  $("#alQuiz").onclick = startAlphaQuiz;
+}
+
+function startAlphaCards() {
+  const due = ALPHABET.map((_, k) => k).filter((k) => !state.al[k] || state.al[k].due <= today());
+  const queue = shuffle(due.filter((k) => state.al[k]).concat(due.filter((k) => !state.al[k]).slice(0, 6))).slice(0, 12);
+  if (!queue.length) {
+    view.innerHTML = `<div class="done"><div class="emoji">🎉</div><h2>Per oggi hai finito</h2>
+      <p>Tutte le lettere sono ripassate. Torna domani, oppure metti alla prova quello che sai.</p>
+      <button class="big" id="b1">Fai il quiz</button><button class="big alt" id="b2">Alfabeto</button></div>`;
+    $("#b1").onclick = startAlphaQuiz; $("#b2").onclick = () => go("alpha");
+    return;
+  }
+  let i = 0, right = 0;
+  const show = () => {
+    if (i >= queue.length) {
+      view.innerHTML = `<div class="done"><div class="emoji">✅</div><h2>Sessione finita</h2><p>Ne sapevi ${right} su ${queue.length}.</p>
+        <button class="big" id="b1">Fai il quiz</button><button class="big alt" id="b2">Alfabeto</button></div>`;
+      $("#b1").onclick = startAlphaQuiz; $("#b2").onclick = () => go("alpha");
+      return;
+    }
+    const k = queue[i], l = ALPHABET[k];
+    view.innerHTML = `
+      <div class="progress"><div style="width:${(i / queue.length) * 100}%"></div></div>
+      <p class="count">${i + 1} / ${queue.length}</p>
+      <div class="card" id="card">
+        <div class="gr xl">${both(k)}</div>
+        <button class="spk" id="spk" aria-label="Ascolta">🔊</button>
+        <div id="back" hidden>
+          <div class="tr">${esc(l[2])}</div>
+          <div class="it">${ALPHA_IT[k]}</div>
+          <p class="tap" style="margin-top:10px">${esc(l[3])}</p>
+        </div>
+        <p class="tap" id="tap">Tocca per vedere il nome</p>
+      </div>
+      <div class="row" id="btns" hidden>
+        <button class="no" id="no">Non la so</button>
+        <button class="yes" id="yes">La so</button>
+      </div>`;
+    $("#spk").onclick = (e) => { e.stopPropagation(); speak(l[2]); };
+    $("#card").onclick = () => { $("#back").hidden = false; $("#btns").hidden = false; $("#tap").hidden = true; speak(l[2]); };
+    const next = (ok) => { gradeLetter(k, ok); logAnswer(ok); if (ok) right++; i++; show(); };
+    $("#no").onclick = () => next(false);
+    $("#yes").onclick = () => next(true);
+  };
+  show();
+}
+
+// Quiz senza fine: le lettere tornano a ripetizione (più spesso quelle deboli o appena sbagliate) finché non premi «Termina».
+function pickLetter(recent, boost) {
+  const pool = ALPHABET.map((_, k) => k).filter((k) => !recent.includes(k));
+  const wt = (k) => (alphaBox(k) <= 0 ? 4 : alphaBox(k) <= 2 ? 2.5 : 1) + (boost[k] || 0);
+  let r = Math.random() * pool.reduce((s, k) => s + wt(k), 0);
+  for (const k of pool) { r -= wt(k); if (r <= 0) return k; }
+  return pool[pool.length - 1];
+}
+
+function startAlphaQuiz() {
+  const kinds = ["name", "name", "letter", "sound"]; // lettera→nome (il più frequente), nome→lettera, ascolto→lettera
+  let n = 0, right = 0, run = 0;
+  const missed = [], recent = [], boost = {};
+  const show = () => {
+    const i = pickLetter(recent, boost);
+    recent.push(i); if (recent.length > 4) recent.shift();
+    Object.keys(boost).forEach((k) => { boost[k] = Math.max(0, boost[k] - 1); });
+    const q = { i, kind: kinds[Math.floor(Math.random() * kinds.length)], up: Math.random() < 0.5 };
+    const l = ALPHABET[i], opts = alphaOpts(i);
+    const ask = q.kind === "name" ? "Come si chiama questa lettera?" : q.kind === "letter" ? "Quale lettera è questa?" : "Ascolta: quale lettera è?";
+    const bigHtml = q.kind === "name" ? `<div class="gr xl">${q.up ? l[0] : lower(i)}</div>`
+      : q.kind === "letter" ? `<div class="gr lg">${ALPHA_IT[i]}</div>`
+      : `<button class="replay" id="spk" aria-label="Riascolta">🔊</button>`;
+    view.innerHTML = `
+      <div class="qtop"><button class="back" id="end">Termina</button><span>${right} giuste su ${n}${run >= 3 ? " · 🔥 " + run : ""}</span></div>
+      <div class="card" style="min-height:210px"><div class="prompt">${ask}</div>${bigHtml}</div>
+      <div class="opts">${opts.map((k) => `<button class="opt" data-k="${k}">${q.kind === "name" ? ALPHA_IT[k] : both(k)}</button>`).join("")}</div>
+      <div class="fb" id="fb"></div>`;
+    $("#end").onclick = () => (n ? alphaResult(right, n, missed) : go("alpha"));
+    if (q.kind === "sound") { $("#spk").onclick = () => speak(l[2]); speak(l[2]); }
+    view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+      const ok = +b.dataset.k === i;
+      view.querySelectorAll(".opt").forEach((o) => { o.disabled = true; if (+o.dataset.k === i) o.classList.add("ok"); });
+      n++;
+      if (ok) { right++; run++; } else { b.classList.add("bad"); missed.push(i); run = 0; boost[i] = 3; }
+      gradeLetter(i, ok); logAnswer(ok);
+      if (q.kind !== "sound") speak(l[2]);
+      $("#fb").innerHTML = `<p class="note">${ok ? "✓ Giusto! " : "Era "}<b>${both(i)}</b>: si chiama <b>${ALPHA_IT[i]}</b> (${esc(l[2])})</p><button class="big" id="nx" style="justify-content:center">Avanti</button>`;
+      $("#nx").onclick = show;
+    }));
+  };
+  show();
+}
+
+function alphaResult(right, total, missed) {
+  const uniq = [...new Set(missed)];
+  view.innerHTML = `<div class="done"><div class="emoji">${right === total ? "🏆" : right >= total * 0.7 ? "👍" : "💪"}</div><h2>${right} / ${total}</h2>
+    <p>${uniq.length ? "Da rivedere: " + uniq.map((k) => `<b>${both(k)}</b> (${ALPHA_IT[k]})`).join(" · ") : "Nessun errore!"}</p>
+    <button class="big" id="again">Ancora un quiz</button><button class="big alt" id="fc">Flashcard</button><button class="big alt" id="bk">Alfabeto</button></div>`;
+  $("#again").onclick = startAlphaQuiz; $("#fc").onclick = startAlphaCards; $("#bk").onclick = () => go("alpha");
 }

@@ -5,7 +5,7 @@ const $ = (s) => document.querySelector(s);
 const view = $("#view");
 
 const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 864e5);
-const fresh = () => ({ cards: {}, streak: { last: -1, count: 0 }, reviews: 0, cat: "tutte", done: {}, last: null, added: {}, pu: {}, pl: {}, free: false, goal: 20, log: {}, ach: {}, bk: 0, tp: 0, perf: 0, err: {} });
+const fresh = () => ({ cards: {}, streak: { last: -1, count: 0 }, reviews: 0, cat: "tutte", done: {}, last: null, added: {}, pu: {}, pl: {}, free: false, goal: 20, log: {}, ach: {}, bk: 0, tp: 0, perf: 0, err: {}, al: {} });
 
 function load() {
   try { return Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY)) || {}); }
@@ -482,8 +482,10 @@ function startConj(secs, back, backLabel) {
 function renderAlpha() {
   view.innerHTML = `
     <h1>Alfabeto <small>το αλφάβητο</small></h1>
-    <p class="hint">Tocca una lettera per ascoltarne il nome.</p>
-    <div class="grid">${ALPHABET.map((l, i) => `<button class="letter" data-i="${i}"><b>${l[0]}${l[1].split(" ")[0]}</b><span>${esc(l[2])}</span></button>`).join("")}</div>
+    ${alphaHub()}
+    <h2>Tutte le lettere</h2>
+    <p class="hint" style="margin-top:0">Tocca una lettera per ascoltarne il nome.</p>
+    <div class="grid">${ALPHABET.map((l, i) => `<button class="letter${alphaBox(i) >= 3 ? " got" : ""}" data-i="${i}"><b>${l[0]}${l[1].split(" ")[0]}</b><span>${esc(l[2])}</span></button>`).join("")}</div>
     <div id="detail" class="detail" hidden></div>
     <h2>Gruppi di lettere</h2>
     <div class="dig">${DIGRAPHS.map((d) => `<div><b>${d[0]}</b><span>${esc(d[1])}</span><em>${esc(d[2])}</em></div>`).join("")}</div>`;
@@ -491,9 +493,10 @@ function renderAlpha() {
     const l = ALPHABET[+b.dataset.i];
     const d = $("#detail");
     d.hidden = false;
-    d.innerHTML = `<div class="big-letter">${l[0]} ${l[1]}</div><div><b>${esc(l[2])}</b><br>${esc(l[3])}</div>`;
+    d.innerHTML = `<div class="big-letter">${l[0]} ${l[1]}</div><div><b>${esc(l[2])}</b> · ${ALPHA_IT[+b.dataset.i]}<br>${esc(l[3])}</div>`;
     speak(l[2]);
   }));
+  bindAlpha();
 }
 
 // ---------- Lezioni per livelli ----------
