@@ -1,0 +1,338 @@
+// Obiettivo giornaliero, statistiche, traguardi e backup dei progressi.
+// Usa state, view, $, esc, toast, save, today, touchStreak, learnedCount, syncDeck, fresh, go, KEY (app.js)
+// e UNITS, LEVELS, passedU (units.js, lessons.js, path.js) solo a run-time, dentro le funzioni.
+//
+// Dati salvati in state:
+//   goal   obiettivo giornaliero (numero di risposte)
+//   log    { [giorno]: { n: risposte, ok: giuste, g: 1 se l'obiettivo è stato raggiunto } }
+//   ach    { [id traguardo]: giorno di sblocco }
+//   bk     giorno dell'ultimo backup
+//   tp / perf  test superati / test chiusi al 100%
+const GOALS = [10, 20, 30, 50];
+const LOG_DAYS = 400; // quanti giorni di storico tenere
+const DOW = ["D", "L", "M", "M", "G", "V", "S"];
+
+const dayEntry = (d = today()) => state.log[d] || { n: 0, ok: 0 };
+const todayCount = () => dayEntry().n;
+const goalOf = () => state.goal || 20;
+
+// ---------- Registrazione delle risposte ----------
+function logAnswer(ok) {
+  state.reviews++;
+  const t = today();
+  if (!state.log[t]) {
+    state.log[t] = { n: 0, ok: 0 };
+    Object.keys(state.log).forEach((k) => { if (+k < t - LOG_DAYS) delete state.log[k]; });
+  }
+  const e = state.log[t];
+  e.n++; if (ok) e.ok++;
+  touchStreak();
+  progressCheck();
+  save();
+}
+
+function noteTest(ok, pct) {
+  if (ok) { state.tp = (state.tp || 0) + 1; if (pct === 100) state.perf = (state.perf || 0) + 1; }
+  touchStreak();
+  progressCheck();
+  save();
+}
+
+// ---------- Traguardi ----------
+const bestStreak = () => Math.max(state.streak.best || 0, state.streak.count || 0);
+const goalDays = () => Object.values(state.log).filter((e) => e.g).length;
+const totalUnits = () => UNITS.reduce((n, us) => n + us.length, 0);
+const passedUnits = () => UNITS.reduce((n, us) => n + us.filter((u) => passedU(u.id)).length, 0);
+const passedLevels = () => Object.keys(state.pl).length;
+
+const A = (id, i, t, d, cur, max) => ({ id, i, t, d, cur, max });
+const ACH = [
+  A("r1", "👣", "Primo passo", "Rispondi alla tua prima domanda", () => state.reviews, 1),
+  A("r100", "📝", "Cento risposte", "Rispondi a 100 domande", () => state.reviews, 100),
+  A("r500", "📚", "Cinquecento risposte", "Rispondi a 500 domande", () => state.reviews, 500),
+  A("r1000", "🏛️", "Mille risposte", "Rispondi a 1000 domande", () => state.reviews, 1000),
+  A("s3", "🔥", "Tre giorni di fila", "Studia per 3 giorni consecutivi", bestStreak, 3),
+  A("s7", "🔥", "Una settimana", "Studia per 7 giorni consecutivi", bestStreak, 7),
+  A("s14", "🔥", "Due settimane", "Studia per 14 giorni consecutivi", bestStreak, 14),
+  A("s30", "🌟", "Un mese intero", "Studia per 30 giorni consecutivi", bestStreak, 30),
+  A("g1", "🎯", "Obiettivo centrato", "Raggiungi l'obiettivo giornaliero", goalDays, 1),
+  A("g7", "🎯", "Costanza", "Raggiungi l'obiettivo in 7 giorni", goalDays, 7),
+  A("g30", "🎯", "Metodo", "Raggiungi l'obiettivo in 30 giorni", goalDays, 30),
+  A("w25", "🌱", "25 parole", "Impara 25 parole", () => learnedCount(), 25),
+  A("w100", "🌿", "100 parole", "Impara 100 parole", () => learnedCount(), 100),
+  A("w250", "🌳", "250 parole", "Impara 250 parole", () => learnedCount(), 250),
+  A("u1", "✅", "Prima unità", "Supera la tua prima unità", passedUnits, 1),
+  A("u10", "🧭", "Dieci unità", "Supera 10 unità", passedUnits, 10),
+  A("u25", "⛰️", "Venticinque unità", "Supera 25 unità", passedUnits, 25),
+  A("uall", "🗺️", "Tutte le unità", "Supera tutte le unità del percorso", passedUnits, totalUnits()),
+  ...LEVELS.map((l, a) => A("lv" + a, "🏁", `Livello ${l.n} superato`, `Supera il test finale del livello ${l.n}`, () => (state.pl[a] ? 1 : 0), 1)),
+  A("p1", "💯", "Test perfetto", "Chiudi un test al 100%", () => state.perf || 0, 1),
+  A("p5", "💎", "Cinque test perfetti", "Chiudi 5 test al 100%", () => state.perf || 0, 5),
+  A("all", "🎓", "Percorso completato", "Supera il test finale di tutti i livelli", passedLevels, LEVELS.length)
+];
+
+// Controlla obiettivo e traguardi. silent = true: sblocca senza avvisi (serve a recuperare i traguardi già meritati).
+function progressCheck(silent) {
+  const t = today(), msgs = [];
+  const e = state.log[t];
+  if (!silent && e && e.n >= goalOf() && !e.g) { e.g = 1; msgs.push("🎯 Obiettivo di oggi raggiunto!"); }
+  ACH.forEach((a) => {
+    if (state.ach[a.id] || a.cur() < a.max) return;
+    state.ach[a.id] = t;
+    if (!silent) msgs.push(`${a.i} Traguardo: ${a.t}`);
+  });
+  if (msgs.length) toast(msgs.join("  ·  "));
+  if (silent) save();
+}
+
+// ---------- Home: obiettivo di oggi e promemoria backup ----------
+function goalCard() {
+  const n = todayCount(), g = goalOf(), done = n >= g;
+  return `<button class="goal${done ? " hit" : ""}" id="goGoal">
+    <div><b>${done ? "🎯 Obiettivo raggiunto!" : "Obiettivo di oggi"}</b><span>${n} / ${g}</span></div>
+    <div class="progress"><div style="width:${Math.min(100, Math.round((n / g) * 100))}%"></div></div></button>`;
+}
+
+function backupAgo() {
+  if (!state.bk) return "mai";
+  const d = today() - state.bk;
+  return d <= 0 ? "oggi" : d === 1 ? "ieri" : d + " giorni fa";
+}
+
+function backupNudge() {
+  if (state.reviews < 50) return "";
+  if (state.bk && today() - state.bk < 14) return "";
+  return `<button class="note nudge" id="goBk"><span>💾 ${state.bk ? "Ultimo backup " + backupAgo() : "Non hai ancora fatto un backup"}: salva i tuoi progressi</span><span>›</span></button>`;
+}
+
+function bindHome() {
+  if ($("#goGoal")) $("#goGoal").onclick = () => go("stats");
+  if ($("#goBk")) $("#goBk").onclick = () => go("stats");
+}
+
+// ---------- Schermata Progressi ----------
+function renderStats() {
+  const t = today(), g = goalOf(), n = todayCount();
+  const days = Array.from({ length: 7 }, (_, k) => t - 6 + k);
+  const max = Math.max(g, ...days.map((d) => dayEntry(d).n));
+  const chart = days.map((d) => {
+    const c = dayEntry(d).n;
+    return `<div class="col"><i class="b${c >= g ? " hit" : d === t ? " today" : ""}" style="height:${Math.round((c / max) * 100)}%"></i></div>`;
+  }).join("");
+  const axis = days.map((d) => `<div class="${d === t ? "today" : ""}"><b>${DOW[new Date(d * 864e5).getUTCDay()]}</b>${dayEntry(d).n || "·"}</div>`).join("");
+  const all = Object.values(state.log);
+  const tot = all.reduce((s, e) => s + e.n, 0), right = all.reduce((s, e) => s + e.ok, 0);
+  const got = ACH.filter((a) => state.ach[a.id]).length;
+
+  view.innerHTML = `<h1>Progressi <small>obiettivo, statistiche e traguardi</small></h1>
+    <button class="goal${n >= g ? " hit" : ""}" style="margin-top:0;cursor:default">
+      <div><b>${n >= g ? "🎯 Obiettivo raggiunto!" : "Obiettivo di oggi"}</b><span>${n} / ${g} risposte</span></div>
+      <div class="progress"><div style="width:${Math.min(100, Math.round((n / g) * 100))}%"></div></div></button>
+    <h2>Risposte al giorno</h2>
+    <div class="chips">${GOALS.map((x) => `<button class="chip ${x === g ? "on" : ""}" data-g="${x}">${x}</button>`).join("")}</div>
+    <div class="chart" style="margin-top:14px"><div class="gline" style="bottom:${(g / max) * 100}%"></div>${chart}</div>
+    <div class="axis">${axis}</div>
+    <h2>Calendario</h2>
+    ${calendarHtml()}
+    <h2>Statistiche</h2>
+    <div class="kpi">
+      <div><b>${currentStreak()}</b><span>giorni di fila 🔥</span></div>
+      <div><b>${bestStreak()}</b><span>serie migliore</span></div>
+      <div><b>${state.reviews}</b><span>risposte totali</span></div>
+      <div><b>${tot ? Math.round((right / tot) * 100) + "%" : "–"}</b><span>risposte giuste</span></div>
+      <div><b>${all.filter((e) => e.n > 0).length}</b><span>giorni di studio</span></div>
+      <div><b>${goalDays()}</b><span>obiettivi raggiunti</span></div>
+      <div><b>${learnedCount()}<i>/${WORDS.length}</i></b><span>parole imparate</span></div>
+      <div><b>${passedUnits()}<i>/${totalUnits()}</i></b><span>unità superate</span></div>
+      <div><b>${state.tp || 0}</b><span>test superati</span></div>
+      <div><b>${errCount()}</b><span>parole da rivedere</span></div>
+    </div>
+    <h2>Traguardi · ${got} / ${ACH.length}</h2>
+    ${ACH.map((a) => {
+      const c = Math.min(a.cur(), a.max), has = !!state.ach[a.id];
+      return `<div class="ach ${has ? "got" : "lock"}"><span class="ai">${a.i}</span><span><b>${esc(a.t)}</b><small>${esc(a.d)}</small></span><em>${has ? "✓" : c + "/" + a.max}</em></div>`;
+    }).join("")}
+    <h2>Backup dei progressi</h2>
+    <p class="note">I progressi sono salvati solo su questo telefono: se cancelli i dati del browser o disinstalli l'app, si perdono. Salva ogni tanto un backup (ad esempio su Drive, iCloud o nei messaggi a te stesso).<br><b>Ultimo backup: ${backupAgo()}</b></p>
+    <button class="big" id="bkFile">Salva backup <span>file .json</span></button>
+    <button class="big alt" id="bkCopy">Copia come testo <span>negli appunti</span></button>
+    <button class="big alt" id="bkLoad">Ripristina da file <span>.json</span></button>
+    <button class="big alt" id="bkPaste">Ripristina da testo <span>incolla</span></button>
+    <div id="bkBox" hidden>
+      <textarea id="bkText" rows="6" spellcheck="false" placeholder="Incolla qui il backup"></textarea>
+      <button class="big" id="bkGo" style="justify-content:center">Ripristina</button>
+    </div>
+    <input type="file" id="bkIn" accept=".json,application/json,text/plain" hidden>
+    <p class="hint">Ripristinare sostituisce i progressi attuali con quelli del backup.</p>`;
+
+  view.querySelectorAll("[data-g]").forEach((b) => (b.onclick = () => { state.goal = +b.dataset.g; save(); renderStats(); }));
+  $("#bkFile").onclick = backupFile;
+  $("#bkCopy").onclick = backupCopy;
+  $("#bkLoad").onclick = () => $("#bkIn").click();
+  $("#bkIn").onchange = async (e) => {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    try { restoreFrom(await f.text()); } catch (err) { toast("Non riesco a leggere il file"); }
+  };
+  $("#bkPaste").onclick = () => { $("#bkBox").hidden = false; $("#bkText").focus(); };
+  $("#bkGo").onclick = () => restoreFrom($("#bkText").value);
+}
+
+// ---------- Backup ----------
+function backupJson() {
+  return JSON.stringify({ app: "ellinika", v: 1, saved: new Date().toISOString(), state });
+}
+function backupName() {
+  const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return `ellinika-backup-${d}.json`;
+}
+function markBackup() {
+  state.bk = today(); save();
+  toast("Backup salvato ✓");
+  if (tab === "stats") renderStats();
+}
+
+async function backupFile() {
+  const name = backupName(), file = new File([backupJson()], name, { type: "application/json" });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: "Backup Ελληνικά" });
+      return markBackup();
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return; // l'utente ha chiuso il foglio di condivisione
+  }
+  const url = URL.createObjectURL(file), a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  markBackup();
+}
+
+async function backupCopy() {
+  const json = backupJson();
+  try {
+    await navigator.clipboard.writeText(json);
+    markBackup();
+  } catch (e) { // niente appunti: mostro il testo da copiare a mano
+    $("#bkBox").hidden = false;
+    const ta = $("#bkText");
+    ta.value = json; ta.focus(); ta.select();
+    toast("Seleziona il testo e copialo");
+  }
+}
+
+function restoreFrom(text) {
+  let data;
+  try { data = JSON.parse(text); } catch (e) { return toast("Backup non valido"); }
+  const s = data && data.app === "ellinika" ? data.state : null;
+  if (!s || typeof s !== "object" || typeof s.cards !== "object" || !s.streak) return toast("Questo non è un backup di Ελληνικά");
+  const units = Object.keys(s.pu || {}).length, when = String(data.saved || "").slice(0, 10);
+  if (!confirm(`Ripristinare il backup${when ? " del " + when : ""}?\n${s.reviews | 0} risposte, ${units} unità superate.\nI progressi attuali su questo telefono verranno sostituiti.`)) return;
+  try { localStorage.setItem(KEY + "-prima-del-ripristino", JSON.stringify(state)); } catch (e) {} // rete di sicurezza
+  state = Object.assign(fresh(), s);
+  ["cards", "added", "pu", "pl", "log", "ach", "done", "err"].forEach((k) => { if (!state[k] || typeof state[k] !== "object") state[k] = {}; });
+  state.streak = Object.assign({ last: -1, count: 0 }, state.streak);
+  save(); syncDeck(); progressCheck(true);
+  toast("Progressi ripristinati ✓");
+  renderStats();
+}
+
+// ---------- Parole difficili: ripasso degli errori ----------
+// state.err[id] = errori netti della parola: +1 se sbagli, -1 se rispondi bene (sparisce a 0). Aggiornato da grade() in app.js.
+let _wmap = null;
+function wordMap() { // id -> parola, per ritrovare anche le parole delle lezioni che non sono nel mazzo
+  if (!_wmap) {
+    _wmap = new Map();
+    BASE_WORDS.forEach((w) => _wmap.set(w.id, w));
+    LEVELS.forEach((_, a) => wordsOf(levelParts(a)).forEach((w) => _wmap.set(w.id, w)));
+    WORDS.forEach((w) => { if (!_wmap.has(w.id)) _wmap.set(w.id, w); });
+  }
+  return _wmap;
+}
+const errWords = () => Object.keys(state.err).map((id) => wordMap().get(id)).filter(Boolean);
+const errCount = () => errWords().length;
+
+function startErrors() {
+  const ws = shuffle(errWords()).sort((x, y) => state.err[y.id] - state.err[x.id]).slice(0, 10);
+  if (!ws.length) return toast("Nessun errore da ripassare 🎉");
+  const ctx = { words: ws, levelWords: [...wordMap().values()].filter((w) => w.cat === "lezioni") };
+  const kinds = wordKinds();
+  const qs = shuffle(ws.map((w, i) => wordQ(w, kinds[i % kinds.length], ctx)));
+  runTest(qs, {
+    title: "I miei errori",
+    onExit: () => go("train"),
+    onEnd: ({ score, total }) => {
+      const left = errCount();
+      view.innerHTML = `<div class="done"><div class="emoji">${score === total ? "🏆" : score >= total / 2 ? "👍" : "💪"}</div>
+        <h2>${score} / ${total}</h2>
+        <p>${left ? `Ti restano ${left} parole da rivedere.` : "Hai ripulito tutti gli errori! 🎉"}</p>
+        ${left ? `<button class="big" id="again">Ancora</button>` : ""}<button class="big alt" id="bk">Allenati</button></div>`;
+      if ($("#again")) $("#again").onclick = startErrors;
+      $("#bk").onclick = () => go("train");
+    }
+  });
+}
+
+// ---------- Calendario dell'attività (ultime 15 settimane, lunedì in alto) ----------
+function calendarHtml() {
+  const W = 15, t = today(), g = goalOf();
+  const dow = (d) => (new Date(d * 864e5).getUTCDay() + 6) % 7;
+  const start = t - dow(t) - (W - 1) * 7;
+  let cells = "";
+  for (let r = 0; r < 7; r++) for (let c = 0; c < W; c++) {
+    const d = start + c * 7 + r;
+    if (d > t) { cells += `<i class="cal0 fut"></i>`; continue; }
+    const n = dayEntry(d).n, lvl = n === 0 ? 0 : n >= g ? 3 : n >= g / 2 ? 2 : 1, dt = new Date(d * 864e5);
+    cells += `<i class="cal${lvl}${d === t ? " cur" : ""}" title="${dt.getUTCDate()}/${dt.getUTCMonth() + 1}: ${n} risposte"></i>`;
+  }
+  return `<div class="cal" style="--w:${W}">${cells}</div>
+    <p class="legend">Un quadrato per giorno · <i class="cal1"></i> poco <i class="cal2"></i> metà obiettivo <i class="cal3"></i> obiettivo raggiunto</p>`;
+}
+
+// ---------- Dizionario: cerca in greco, italiano o pronuncia ----------
+let _dict = null;
+function dictIndex() {
+  if (_dict) return _dict;
+  const seen = new Set(), out = [];
+  const add = (gr, tr, it, src) => {
+    if (!gr || (!it && !tr)) return;
+    const key = norm(gr) + "|" + norm(it || "");
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ gr, tr: tr || "", it: it || "", src, k: [norm(gr), norm(tr || ""), norm(it || "")] });
+  };
+  CATS.forEach((c) => c.words.forEach((w) => add(w[0], w[1], w[2], c.emoji + " " + c.nome)));
+  LEVELS.forEach((l) => l.sections.forEach((s) => {
+    const src = `Livello ${l.n} · ${s.t}`;
+    (s.rows || []).forEach((r) => add(r[0], r[1], r[2], src));
+    (s.dialog || []).forEach((d) => add(d[1], "", d[2], src));
+    if (s.conj) s.conj.rows.forEach((r) => { for (let j = 1; j < r.length; j++) add(r[j][0], r[j][1], `${r[0][2]} · ${s.conj.head[j]}`, src); });
+  }));
+  return (_dict = out);
+}
+
+function renderDict() {
+  const D = dictIndex();
+  view.innerHTML = `<h1>Dizionario <small>${D.length} voci tra parole, frasi e verbi</small></h1>
+    <div class="typebox" style="margin-top:0"><input id="dq" type="search" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Cerca in greco, italiano o pronuncia"></div>
+    <div id="dres" class="words" style="margin-top:14px"></div>`;
+  const show = () => {
+    const q = norm($("#dq").value), box = $("#dres");
+    if (!q) { box.innerHTML = `<p class="hint" style="margin:0">Scrivi una parola: trovi la traduzione, la pronuncia e dove l'hai incontrata. Tocca un risultato per ascoltarlo.</p>`; return; }
+    const hits = [];
+    D.forEach((e) => { const s = e.k.some((x) => x.startsWith(q)) ? 0 : e.k.some((x) => x.includes(q)) ? 1 : -1; if (s >= 0) hits.push([s, e]); });
+    hits.sort((a, b) => a[0] - b[0] || a[1].gr.length - b[1].gr.length);
+    const shown = hits.slice(0, 40);
+    box.innerHTML = shown.length
+      ? shown.map(([, e], i) => `<button class="wr" data-i="${i}"><span class="g">${esc(e.gr)}</span><span class="p">${esc(e.tr)}</span>
+          <span class="i">${esc(e.it)}<small class="src">${esc(e.src)}</small></span><u>🔊</u></button>`).join("")
+        + (hits.length > 40 ? `<p class="hint">Altri ${hits.length - 40} risultati: scrivi di più per restringere.</p>` : "")
+      : `<p class="hint" style="margin:0">Nessun risultato.</p>`;
+    box.querySelectorAll(".wr").forEach((b) => (b.onclick = () => speak(shown[+b.dataset.i][1].gr)));
+  };
+  $("#dq").oninput = show;
+  show();
+  $("#dq").focus();
+}

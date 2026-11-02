@@ -156,7 +156,7 @@ function runTest(qs, { title, onEnd, onExit }) {
     if (q.auto) speak(q.spk);
     const reveal = (ok) => {
       if (ok) score++;
-      if (q.w) { grade(q.w, ok); if (!ok) missed.push(q.w); } else { state.reviews++; touchStreak(); save(); }
+      if (q.w) { grade(q.w, ok); if (!ok) missed.push(q.w); } else logAnswer(ok);
       if (q.say) speak(q.say);
       $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ " + (q.pre || "Era ")} ${q.after}
         <button class="big" id="nx">${i + 1 === qs.length ? "Vedi il risultato" : "Avanti"}</button>`;
@@ -198,10 +198,10 @@ function renderHome() {
       <div><b>${currentStreak()}</b><span>giorni di fila 🔥</span></div>
       <div><b>${done}<i>/${total}</i></b><span>unità superate</span></div>
       <div><b>${learnedCount()}<i>/${WORDS.length}</i></b><span>parole imparate</span></div>
-    </div>`;
+    </div>${goalCard()}`;
   h += nx ? `<button class="big" id="goNext">Continua <span>${esc(nxLabel)}</span></button>`
     : `<p class="hint">🎉 Hai completato tutto il percorso. Ripassa e allenati per non perdere quello che hai imparato.</p>`;
-  h += `<button class="big alt" id="goReview">Ripassa ora <span>${due} da fare</span></button><h2>Livelli</h2>`;
+  h += `<button class="big alt" id="goReview">Ripassa ora <span>${due} da fare</span></button>${backupNudge()}<h2>Livelli</h2>`;
   LEVELS.forEach((l, a) => {
     const n = UNITS[a].filter((u) => passedU(u.id)).length, open = levelOpen(a);
     h += `<button class="lvl${open ? "" : " lock"}" data-a="${a}"><b>Livello ${l.n}${open ? "" : " 🔒"}</b><span>${esc(l.sub)}</span>
@@ -218,6 +218,7 @@ function renderHome() {
   if ($("#goNext")) $("#goNext").onclick = () => (nx.final ? startFinal(nx.a) : openUnit(nx.a, nx.i));
   $("#goReview").onclick = () => go("review");
   $("#free").onclick = () => { state.free = !state.free; save(); renderHome(); };
+  bindHome();
 }
 
 // ---------- Livello: elenco delle unità ----------
@@ -345,7 +346,7 @@ function addToReview(a) {
 function testResult({ score, total, missed }, o) {
   const ratio = score / total, pct = Math.round(ratio * 100), ok = ratio >= PASS;
   if (ok) o.pass(pct);
-  touchStreak(); save();
+  noteTest(ok, pct);
   const uniq = [...new Map(missed.map((w) => [w.id, w])).values()];
   const nx = ok ? o.next() : null;
   view.innerHTML = `<div class="done"><div class="emoji">${ok ? (pct === 100 ? "🏆" : "🎉") : "💪"}</div>

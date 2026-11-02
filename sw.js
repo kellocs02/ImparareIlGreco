@@ -1,5 +1,5 @@
-const CACHE = "ellinika-v10";
-const FILES = ["./", "index.html", "style.css", "data.js", "lessons.js", "units.js", "path.js", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
+const CACHE = "ellinika-v12";
+const FILES = ["./", "index.html", "style.css", "data.js", "lessons.js", "units.js", "path.js", "progress.js", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));

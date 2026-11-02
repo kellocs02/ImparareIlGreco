@@ -113,4 +113,46 @@ nav button i{font:normal 22px/1.2 var(--serif)}nav button.on{color:var(--fg);fon
 .unit small{display:block;color:var(--muted);font-size:13px}
 .unit i{font-style:normal;font-size:22px;color:var(--muted)}
 /* Tema scuro: il blu diventa chiaro, quindi il testo dei bottoni principali deve essere scuro */
-@media(prefers-color-scheme:dark){.big{color:#0b1c26}.big.alt{color:var(--fg)}}
+@media(prefers-color-scheme:dark){.big{color:#0b1c26}.big.alt{color:var(--fg)}}/* Obiettivo giornaliero, statistiche, traguardi, backup */
+nav button{font-size:11px}
+.goal{display:block;width:100%;margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--card);text-align:left}
+.goal>div:first-child{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.goal b{font-weight:600}.goal span{color:var(--muted);font-size:14px}
+.goal .progress{height:8px;border-radius:8px}
+.goal.hit{border-color:var(--gold)}
+.note.nudge{display:flex;justify-content:space-between;gap:10px;width:100%;margin:14px 0 0;border:0;text-align:left;color:var(--fg)}
+.chart{position:relative;display:flex;align-items:flex-end;gap:6px;height:120px;border-bottom:1px solid var(--line)}
+.chart .col{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.chart .b{display:block;width:70%;max-width:30px;min-height:3px;border-radius:6px 6px 2px 2px;background:var(--line)}
+.chart .b.today{background:var(--blue)}.chart .b.hit{background:var(--gold)}
+.gline{position:absolute;left:0;right:0;border-top:1.5px dashed var(--gold);pointer-events:none}
+.axis{display:flex;gap:6px;margin-top:6px}
+.axis div{flex:1;text-align:center;font-size:12px;color:var(--muted)}
+.axis b{display:block;font-weight:600;color:var(--fg)}
+.axis .today b{color:var(--blue)}
+.kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpi div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font:600 28px/1.1 var(--serif)}
+.kpi b i{font-size:15px;font-style:normal;color:var(--muted)}
+.kpi span{font-size:13px;color:var(--muted)}
+.ach{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:11px 2px;border-bottom:1px solid var(--line)}
+.ach .ai{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:var(--blue2)}
+.ach b{display:block;font-weight:600}
+.ach small{display:block;color:var(--muted);font-size:13px}
+.ach em{font-style:normal;font-size:13px;color:var(--muted)}
+.ach.lock{opacity:.5}.ach.lock .ai{filter:grayscale(1)}
+.ach.got em{color:var(--ok);font-weight:700;font-size:18px}
+#bkText{display:block;width:100%;margin-top:12px;padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg);font:13px/1.4 ui-monospace,Menlo,monospace}
+#bkBox .big{margin-top:10px}
+/* Calendario attività, dizionario */
+.cal{display:grid;grid-template-columns:repeat(var(--w),1fr);gap:4px}
+.cal i{aspect-ratio:1;border-radius:4px}
+.cal0{background:var(--line)}
+.cal1{background:color-mix(in srgb,var(--blue) 30%,var(--line))}
+.cal2{background:color-mix(in srgb,var(--blue) 65%,var(--line))}
+.cal3{background:var(--gold)}
+.cal i.fut{background:transparent}
+.cal i.cur{outline:2px solid var(--fg);outline-offset:-1px}
+.legend{margin:10px 0 0;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px}
+.wr .src{display:block;margin-top:2px;font-size:12px;color:var(--muted)}

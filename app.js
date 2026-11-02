@@ -5,7 +5,7 @@ const $ = (s) => document.querySelector(s);
 const view = $("#view");
 
 const today = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 864e5);
-const fresh = () => ({ cards: {}, streak: { last: -1, count: 0 }, reviews: 0, cat: "tutte", done: {}, last: null, added: {}, pu: {}, pl: {}, free: false });
+const fresh = () => ({ cards: {}, streak: { last: -1, count: 0 }, reviews: 0, cat: "tutte", done: {}, last: null, added: {}, pu: {}, pl: {}, free: false, goal: 20, log: {}, ach: {}, bk: 0, tp: 0, perf: 0, err: {} });
 
 function load() {
   try { return Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY)) || {}); }
@@ -74,14 +74,15 @@ function grade(w, known) {
   c.box = known ? Math.min(c.box + 1, INTERVALS.length - 1) : 0;
   c.due = today() + (known ? INTERVALS[c.box] : 0);
   state.cards[w.id] = c;
-  state.reviews++;
-  touchStreak();
-  save();
+  const e = state.err[w.id] || 0; // errori netti: +1 se sbagli, -1 se rispondi bene
+  if (known) { if (e > 1) state.err[w.id] = e - 1; else delete state.err[w.id]; } else state.err[w.id] = Math.min(e + 1, 9);
+  logAnswer(known); // progress.js: conta la risposta, aggiorna serie, obiettivo e traguardi, salva
 }
 function touchStreak() {
   const t = today(), s = state.streak;
   if (s.last === t) return;
   s.count = s.last === t - 1 ? s.count + 1 : 1;
+  s.best = Math.max(s.best || 0, s.count);
   s.last = t;
 }
 function currentStreak() {
@@ -91,12 +92,12 @@ function currentStreak() {
 
 // ---------- Navigazione ----------
 let tab = "home";
-const NAV_OF = { quiz: "train", match: "train" }; // schermate che vivono sotto la tab "Allenati"
+const NAV_OF = { quiz: "train", match: "train", dict: "train" }; // schermate che vivono sotto la tab "Allenati"
 function go(t) {
   tab = t;
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === (NAV_OF[t] || t)));
   // renderHome (il percorso a livelli) è in path.js
-  ({ home: renderHome, train: renderTrain, lessons: renderLessons, review: startReview, quiz: startQuiz, alpha: renderAlpha, match: startMatch })[t]();
+  ({ home: renderHome, train: renderTrain, lessons: renderLessons, review: startReview, quiz: startQuiz, alpha: renderAlpha, match: startMatch, stats: renderStats, dict: renderDict })[t]();
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {
@@ -125,6 +126,8 @@ function renderTrain() {
     ${lastBtn}
     <button class="big alt" id="goQuiz">Fai un quiz <span>10 domande</span></button>
     <button class="big alt" id="goMatch">Abbina le coppie <span>gioco</span></button>
+    <button class="big alt" id="goErr">Ripassa i miei errori <span>${errCount()} parole</span></button>
+    <button class="big alt" id="goDict">Dizionario <span>cerca parole</span></button>
     <button class="big alt" id="goFill">Completa la frase <span>dalle lezioni</span></button>
     <button class="big alt" id="goConj">Allena i verbi <span>coniugazioni</span></button>
     <button class="big alt" id="goLessons">Leggi le lezioni <span>${LEVELS.length} livelli</span></button>
@@ -134,6 +137,8 @@ function renderTrain() {
   $("#goReview").onclick = () => go("review");
   $("#goQuiz").onclick = () => go("quiz");
   $("#goMatch").onclick = () => go("match");
+  $("#goErr").onclick = startErrors;
+  $("#goDict").onclick = () => go("dict");
   $("#goConj").onclick = () => startConj(LEVELS.flatMap((l) => l.sections), () => go("train"), "Allenati");
   $("#goFill").onclick = () => startFill(LEVELS.flatMap((l) => l.sections), () => go("train"), "Allenati");
   if ($("#goLast")) $("#goLast").onclick = () => { lv = state.last.lv; sec = state.last.sec; go("lessons"); };
@@ -387,7 +392,7 @@ function startFill(secs, back, backLabel) {
       const ok = q.opts[+b.dataset.k] === q.ans;
       view.querySelectorAll(".opt").forEach((x) => { x.disabled = true; if (q.opts[+x.dataset.k] === q.ans) x.classList.add("ok"); });
       if (!ok) b.classList.add("bad"); else score++;
-      state.reviews++; touchStreak(); save();
+      logAnswer(ok);
       speak(q.s.gr);
       $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ La parola era " + esc(q.ans) + "."}<br><b>${esc(q.s.gr)}</b>${q.s.tr ? ` <i>(${esc(q.s.tr)})</i>` : ""}
         <button class="big" id="nx">${i + 1 === qs.length ? "Vedi il risultato" : "Avanti"}</button>`;
@@ -442,7 +447,7 @@ function startConj(secs, back, backLabel) {
       <p class="fb" id="fb"></p>`;
     const reveal = (ok) => {
       if (ok) score++;
-      state.reviews++; touchStreak(); save();
+      logAnswer(ok);
       speak(q.ans[0]);
       $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ Era"} <b>${esc(q.ans[0])}</b> <i>(${esc(q.ans[1])})</i>
         <button class="big" id="nx">${i + 1 === qs.length ? "Vedi il risultato" : "Avanti"}</button>`;
@@ -505,10 +510,11 @@ function openLessons(l, s) { lv = l; sec = s; renderLessons(); window.scrollTo(0
 
 function lessonLevels() {
   view.innerHTML = `<h1>Lezioni <small>leggi parole e frasi, livello per livello</small></h1>
-    <p class="hint">Tocca una riga per ascoltare la pronuncia. Ogni livello corrisponde a una dispensa.</p>` +
+    <p class="hint">Tocca una riga per ascoltare la pronuncia. Ogni livello corrisponde a una dispensa.</p><button class="big alt" id="goDict2" style="margin-top:0">🔍 Cerca nel dizionario <span></span></button>` +
     LEVELS.map((l, i) => `<button class="lvl" data-i="${i}"><b>Livello ${l.n}</b><span>${esc(l.sub)}</span>
       <em>${l.sections.length} sezioni · ${countRows(l)} parole e frasi · ${l.sections.filter((_, j) => state.done[i + "-" + j]).length} completate</em></button>`).join("");
   view.querySelectorAll(".lvl").forEach((b) => (b.onclick = () => openLessons(+b.dataset.i, null)));
+  $("#goDict2").onclick = () => go("dict");
 }
 
 function lessonSections() {
@@ -576,5 +582,7 @@ function lessonSection() {
 }
 
 // ---------- Avvio ----------
+progressCheck(true); // recupera in silenzio i traguardi già meritati
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // chiede al browser di non cancellare i dati
 go("home");
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

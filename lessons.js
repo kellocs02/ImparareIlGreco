@@ -624,5 +624,94 @@ const LEVELS = [
         ["Άννα", "Ωραία! Πόσο χρονών είναι;", "Bene! Quanti anni hanno?"],
         ["Μαρία", "Ο αδελφός μου είναι είκοσι πέντε χρονών και η αδελφή μου είναι δεκαοκτώ.", "Mio fratello ha venticinque anni e mia sorella diciotto."]
       ] }
+  ] },
+  // ==================== LIVELLO 5 ====================
+  { n: 5, sub: "I tempi verbali: presente, passato, futuro e perfetto", sections: [
+    { t: "I tempi in breve",
+      note: "Ogni verbo greco ha due «radici»: una continua (γραφ-, per le azioni che durano o si ripetono) e una puntuale (γραψ-, per le azioni compiute una volta). Il presente è unico e vale sia «scrivo» sia «sto scrivendo». Qui vedi i sei tempi principali con lo stesso verbo, γράφω (scrivere), alla prima persona.",
+      rows: [
+        ["γράφω", "ghráfo", "presente: scrivo / sto scrivendo"],
+        ["έγραφα", "éghrafa", "imperfetto: scrivevo / stavo scrivendo"],
+        ["έγραψα", "éghrapsa", "aoristo (passato semplice): ho scritto / scrissi"],
+        ["θα γράφω", "tha ghráfo", "futuro continuo: scriverò (spesso, per un po')"],
+        ["θα γράψω", "tha ghrápso", "futuro semplice: scriverò (una volta)"],
+        ["έχω γράψει", "ékho ghrápsi", "perfetto: ho scritto (e conta ancora adesso)"]
+      ] },
+    { t: "Presente, imperfetto e aoristo",
+      note: "L'imperfetto usa la radice del presente con una ε- iniziale (έγραφα). L'aoristo usa la radice puntuale (γραψ-) con le stesse desinenze -α, -ες, -ε, -αμε, -ατε, -αν. Alla 1ª e 2ª plurale l'accento si sposta e la ε- cade (γράφαμε, γράψαμε).",
+      conj: conj(["Presente · scrivo", "Imperfetto · scrivevo", "Aoristo · ho scritto"],
+        vc("γράφω|ghráfo γράφεις|ghráfis γράφει|ghráfi γράφουμε|ghráfume γράφετε|ghráfete γράφουν|ghráfun"),
+        vc("έγραφα|éghrafa έγραφες|éghrafes έγραφε|éghrafe γράφαμε|ghráfame γράφατε|ghráfate έγραφαν|éghrafan"),
+        vc("έγραψα|éghrapsa έγραψες|éghrapses έγραψε|éghrapse γράψαμε|ghrápsame γράψατε|ghrápsate έγραψαν|éghrapsan")) },
+    { t: "L'imperfetto dei verbi in -άω",
+      note: "I verbi come μιλάω fanno l'imperfetto in -ούσα: μιλούσα, μιλούσες, μιλούσε… Si riconoscono dalla sillaba -ούσ-.",
+      conj: conj(["μιλάω · parlavo"],
+        vc("μιλούσα|milúsa μιλούσες|milúses μιλούσε|milúse μιλούσαμε|milúsame μιλούσατε|milúsate μιλούσαν|milúsan")),
+      rows: [
+        ["Μιλούσαμε για ώρες.", "milúsame ya óres", "Parlavamo per ore."],
+        ["Τι έκανες χθες;", "ti ékanes khthes", "Che hai fatto ieri? (aoristo di κάνω)"]
+      ] },
+    { t: "Imperfetto o aoristo?",
+      note: "Usa l'imperfetto per ciò che durava o si ripeteva («ogni giorno scrivevo», «pioveva»). Usa l'aoristo per un fatto compiuto una volta («ieri ho scritto»). In italiano è la stessa differenza tra «scrivevo» e «ho scritto».",
+      rows: [
+        ["Χθες έγραψα ένα μήνυμα.", "khthes éghrapsa éna mínima", "Ieri ho scritto un messaggio."],
+        ["Κάθε μέρα έγραφα στη μαμά.", "káthe méra éghrafa sti mamá", "Ogni giorno scrivevo alla mamma."],
+        ["Χθες ήπια έναν καφέ.", "khthes ípia énan kafé", "Ieri ho bevuto un caffè."],
+        ["Όταν ήμουν παιδί, έπαιζα έξω.", "ótan ímun pedhí, épeza ékso", "Quando ero bambino, giocavo fuori."],
+        ["Έβρεχε όλη μέρα.", "évrekhe óli méra", "Pioveva tutto il giorno."]
+      ] },
+    { t: "Il futuro: continuo e semplice",
+      note: "Il futuro si fa con θα + il verbo. Con la radice continua (θα γράφω) l'azione dura o si ripete; con la radice puntuale (θα γράψω) è un fatto singolo. Il verbo dopo θα cambia persona, θα resta uguale.",
+      conj: conj(["θα γράφω · continuo", "θα γράψω · semplice"],
+        [["θα γράφω", "tha ghráfo"], ["θα γράφεις", "tha ghráfis"], ["θα γράφει", "tha ghráfi"], ["θα γράφουμε", "tha ghráfume"], ["θα γράφετε", "tha ghráfete"], ["θα γράφουν", "tha ghráfun"]],
+        [["θα γράψω", "tha ghrápso"], ["θα γράψεις", "tha ghrápsis"], ["θα γράψει", "tha ghrápsi"], ["θα γράψουμε", "tha ghrápsume"], ["θα γράψετε", "tha ghrápsete"], ["θα γράψουν", "tha ghrápsun"]]),
+      rows: [
+        ["Αύριο θα γράψω ένα μήνυμα.", "ávrio tha ghrápso éna mínima", "Domani scriverò un messaggio."],
+        ["Κάθε μέρα θα γράφω στη μαμά.", "káthe méra tha ghráfo sti mamá", "Ogni giorno scriverò alla mamma."],
+        ["Θα τρώω ψάρι κάθε μέρα.", "tha tróo psári káthe méra", "Mangerò pesce ogni giorno."]
+      ] },
+    { t: "Il perfetto: έχω + verbo",
+      note: "Il perfetto («ho scritto», «sono stato») si fa con έχω + una forma fissa del verbo che finisce in -ει. Questa forma non cambia mai: cambia solo έχω. Si usa per esperienze e per azioni che hanno effetto adesso.",
+      conj: conj(["έχω γράψει · ho scritto"],
+        [["έχω γράψει", "ékho ghrápsi"], ["έχεις γράψει", "ékhis ghrápsi"], ["έχει γράψει", "ékhi ghrápsi"], ["έχουμε γράψει", "ékhume ghrápsi"], ["έχετε γράψει", "ékhete ghrápsi"], ["έχουν γράψει", "ékhun ghrápsi"]]),
+      rows: [
+        ["έχω φάει", "ékho fái", "ho mangiato"],
+        ["έχω δει", "ékho dhi", "ho visto"],
+        ["έχω πάει", "ékho pái", "sono stato / sono andato"],
+        ["έχω πιει", "ékho pii", "ho bevuto"],
+        ["έχω μιλήσει", "ékho milísi", "ho parlato"],
+        ["έχω διαβάσει", "ékho dhiavási", "ho letto"]
+      ] },
+    { t: "Parole del tempo",
+      note: "Queste parole ti dicono quale tempo usare. ποτέ si usa con δεν: δεν… ποτέ = mai.",
+      rows: [
+        ["χθες", "khthes", "ieri"],
+        ["σήμερα", "símera", "oggi"],
+        ["αύριο", "ávrio", "domani"],
+        ["τώρα", "tóra", "adesso"],
+        ["πάντα", "pánda", "sempre"],
+        ["συχνά", "sikhná", "spesso"],
+        ["ποτέ", "poté", "mai (con δεν)"],
+        ["ήδη", "ídhi", "già"],
+        ["ακόμα", "akóma", "ancora"],
+        ["πέρυσι", "périsi", "l'anno scorso"]
+      ] },
+    { t: "Frasi con tutti i tempi",
+      rows: [
+        ["Τώρα γράφω ένα μήνυμα.", "tóra ghráfo éna mínima", "Adesso scrivo un messaggio."],
+        ["Πού πήγες χθες;", "pu píyes khthes", "Dove sei andato ieri?"],
+        ["Αύριο θα γράψω στη Μαρία.", "ávrio tha ghrápso sti María", "Domani scriverò a Maria."],
+        ["Έχω ήδη φάει.", "ékho ídhi fái", "Ho già mangiato."],
+        ["Δεν έχω πάει ποτέ στην Ελλάδα.", "dhen ékho pái poté stin Eládha", "Non sono mai stato in Grecia."]
+      ] },
+    { t: "Dialogo: cosa hai fatto ieri?",
+      dialog: [
+        ["Μαρία", "Τι έκανες χθες;", "Che hai fatto ieri?"],
+        ["Ελένη", "Χθες πήγα στη θάλασσα.", "Ieri sono andata al mare."],
+        ["Μαρία", "Ωραία! Τι έκανες εκεί;", "Bello! Cosa hai fatto lì?"],
+        ["Ελένη", "Κολύμπησα και διάβασα ένα βιβλίο.", "Ho nuotato e letto un libro."],
+        ["Μαρία", "Εγώ έμεινα σπίτι. Αύριο θα έρθω μαζί σου.", "Io sono rimasta a casa. Domani verrò con te."],
+        ["Ελένη", "Τέλεια! Θα φάμε και ψάρι.", "Perfetto! Mangeremo anche pesce."]
+      ] }
   ] }
 ];
