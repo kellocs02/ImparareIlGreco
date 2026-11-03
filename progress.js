@@ -366,7 +366,7 @@ function alphaOpts(i) { // 4 scelte: la giusta, fino a 2 lettere simili, il rest
 }
 
 function voiceNote() { // il browser usa le voci del dispositivo: se manca quella greca, spiega come aggiungerla
-  if (!("speechSynthesis" in window) || !speechSynthesis.getVoices().length || greekVoice()) return "";
+  if (audioOk || !("speechSynthesis" in window) || !speechSynthesis.getVoices().length || greekVoice()) return "";
   return `<p class="note">🔊 Su questo dispositivo manca la voce greca, quindi la pronuncia non è corretta. Aggiungila nelle impostazioni di sistema: <b>Windows</b> Lingua e area geografica → Greco → Voce · <b>Android</b> Sintesi vocale → Google → Greco · <b>iPhone</b> Accessibilità → Contenuto letto → Voci → Greco.</p>`;
 }
 function alphaHub() {

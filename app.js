@@ -31,30 +31,98 @@ function lessonWords() {
 function syncDeck() { WORDS.length = 0; WORDS.push(...BASE_WORDS, ...lessonWords()); }
 syncDeck();
 
-// ---------- Audio (sintesi vocale del telefono) ----------
+// ---------- Audio ----------
+// Prima i file registrati in audio/ (lista.json: testo -> file, creati con genera_audio.py),
+// altrimenti la voce greca del dispositivo.
+let AUDIO = {};          // testo pulito -> nome file
+let audioOk = false;     // almeno un file audio è stato caricato
+const clips = new Map(); // nome file -> blob URL, tenuti in memoria così partono subito al tocco
+const player = new Audio();
+let queueId = 0;
+
+const speechText = (text) => text.split("→").pop().replace(/[…;?]/g, "").replace(/[\/·]/g, ",").trim();
+
+async function clipUrl(file) {
+  if (clips.has(file)) return clips.get(file);
+  const r = await fetch("audio/" + file);
+  if (!r.ok) throw new Error("clip mancante");
+  const url = URL.createObjectURL(await r.blob());
+  clips.set(file, url);
+  audioOk = true;
+  return url;
+}
+async function warmClips() { // scarica in background tutti i file, così funzionano anche offline
+  const files = [...new Set(Object.values(AUDIO))];
+  let i = 0, fails = 0;
+  const worker = async () => {
+    while (i < files.length) {
+      if (fails >= 5 && !audioOk) return; // i file non ci sono: inutile insistere
+      try { await clipUrl(files[i++]); } catch (e) { fails++; }
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+}
+fetch("audio/lista.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({})).then((m) => {
+  AUDIO = m;
+  if (Object.keys(m).length) setTimeout(warmClips, 1500);
+});
+
+// iOS: il primo suono deve partire da un tocco. Sblocco il player con un file silenzioso al primo tocco.
+const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+function unlockAudio() {
+  document.removeEventListener("pointerdown", unlockAudio);
+  player.src = SILENT;
+  player.play().then(() => { if (player.src === SILENT) player.pause(); }).catch(() => {});
+}
+document.addEventListener("pointerdown", unlockAudio);
+
 function greekVoice() {
-  return speechSynthesis.getVoices().find((x) => x.lang && x.lang.toLowerCase().startsWith("el"));
+  return "speechSynthesis" in window && speechSynthesis.getVoices().find((x) => x.lang && x.lang.toLowerCase().startsWith("el"));
 }
 function utter(text) {
-  // Nelle righe "singolare → plurale" si pronuncia solo la parte dopo la freccia.
-  const clean = text.split("→").pop().replace(/[…;?]/g, "").replace(/[\/·]/g, ",").trim();
-  const u = new SpeechSynthesisUtterance(clean);
+  const u = new SpeechSynthesisUtterance(speechText(text));
   u.lang = "el-GR"; u.rate = 0.85;
   const v = greekVoice();
   if (v) u.voice = v;
   return u;
 }
-function speak(text) {
-  if (!("speechSynthesis" in window)) return toast("Sintesi vocale non disponibile su questo dispositivo");
-  if (!greekVoice() && speechSynthesis.getVoices().length) toast("Installa la voce greca nelle impostazioni del telefono per sentire la pronuncia");
-  speechSynthesis.cancel();
-  speechSynthesis.speak(utter(text));
+function playUrl(url) {
+  return new Promise((res, rej) => {
+    player.onended = res; player.onerror = rej;
+    player.src = url;
+    player.play().catch(rej);
+  });
 }
-function speakMany(list) {
-  if (!("speechSynthesis" in window)) return toast("Sintesi vocale non disponibile su questo dispositivo");
-  speechSynthesis.cancel();
-  list.forEach((t) => speechSynthesis.speak(utter(t)));
+function synthSay(text) {
+  return new Promise((res) => {
+    if (!("speechSynthesis" in window)) { toast("Audio non disponibile su questo dispositivo"); return res(); }
+    if (!greekVoice() && speechSynthesis.getVoices().length) toast("Manca la voce greca: la pronuncia non sarà corretta");
+    const u = utter(text);
+    u.onend = u.onerror = res;
+    speechSynthesis.speak(u);
+  });
 }
+async function playList(list) {
+  const id = ++queueId;
+  player.pause();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  for (const t of list) {
+    if (id !== queueId) return; // un nuovo audio ha preso il posto di questo
+    const file = AUDIO[speechText(t)];
+    let done = false;
+    if (file) {
+      try {
+        const url = clips.get(file) || (await clipUrl(file)); // già in memoria: parte subito, dentro il tocco
+        if (id !== queueId) return;
+        await playUrl(url);
+        done = true;
+      } catch (e) { /* file mancante o bloccato: ripiego sulla voce del dispositivo */ }
+    }
+    if (!done && id === queueId) await synthSay(t);
+  }
+}
+const speak = (text) => playList([text]);
+const speakMany = (list) => playList(list);
 if ("speechSynthesis" in window) speechSynthesis.onvoiceschanged = () => {};
 
 function toast(msg) {
