@@ -1,6 +1,6 @@
-const CACHE = "ellinika-v18";
+const CACHE = "ellinika-v20";
 const AUDIO_CACHE = "ellinika-audio"; // separata: gli audio non si riscaricano a ogni nuova versione
-const FILES = ["./", "index.html", "style.css", "data.js", "lessons.js", "units.js", "path.js", "progress.js", "app.js", "ripasso.js", "letture.js", "extra.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
+const FILES = ["./", "index.html", "style.css", "data.js", "lessons.js", "units.js", "path.js", "progress.js", "app.js", "ripasso.js", "letture.js", "extra.js", "layout.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));

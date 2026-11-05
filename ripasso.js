@@ -1,6 +1,8 @@
 // Ripasso rinnovato, tastiera greca, riordina la frase, parole ostiche e preferiti.
 (function () {
   state.fav = state.fav || {}; state.note = state.note || {};
+  const rf = restoreFrom; // dopo un ripristino i campi nuovi devono esistere
+  restoreFrom = function (t) { rf(t); state.fav = state.fav || {}; state.note = state.note || {}; };
   const st = document.createElement("style");
   st.textContent = `.kb{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-top:10px}.kb button{padding:11px 0;border:1px solid var(--line);border-radius:9px;background:var(--card);font:600 20px var(--serif)}.kb .w{grid-column:span 2}
 .star{position:absolute;top:10px;left:12px;width:46px;height:46px;border:0;background:none;font-size:26px;color:var(--gold)}
