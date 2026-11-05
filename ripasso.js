@@ -37,7 +37,9 @@
   const kindOf = (w) => { const b = boxOf(w); return b < 1 ? (Math.random() < .5 ? "choice" : "listen") : b < 3 ? "it2gr" : "dict"; };
   function runReview(list, n) {
     const fresh_ = shuffle(list.filter((w) => !state.cards[w.id])).slice(0, 6);
-    let queue = shuffle(list.filter((w) => state.cards[w.id])).concat(fresh_).slice(0, n).map((w) => ({ w, kind: kindOf(w), first: true }));
+    const prio = window.reviewPriority || (() => Math.random()); // forget.js, se caricato, mette qui una stima del rischio di dimenticare
+    const dueSorted = list.filter((w) => state.cards[w.id]).map((w) => ({ w, p: prio(w) })).sort((a, b) => b.p - a.p).map((x) => x.w);
+    let queue = dueSorted.concat(fresh_).slice(0, n).map((w) => ({ w, kind: kindOf(w), first: true }));
     const total = queue.length, wrong = new Map(); let i = 0, right = 0;
     if (!total) return done("Tutto in regola!", "Niente da ripassare per ora.", [["Torna alla home", () => go("home")]]);
     const show = () => {
