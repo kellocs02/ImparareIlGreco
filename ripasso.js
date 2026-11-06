@@ -57,7 +57,7 @@
         body = `<div class="opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}">${esc(o.it)}</button>`).join("")}</div>`;
       } else body = `<div class="typebox"><input id="ans" autocomplete="off" spellcheck="false" placeholder="Scrivi qui"><button class="big" id="chk" style="justify-content:center">Controlla</button></div>${kbHtml()}`;
       view.innerHTML = `<div class="progress"><div style="width:${((total - queue.length - 1) / total) * 100}%"></div></div><p class="count">${total - queue.length} / ${total}</p>
-        <div class="card q"><button class="star" id="st">${star(w)}</button><div class="prompt">${label}</div><div class="gr">${main}</div><button class="spk" id="spk">🔊</button></div>${body}<p class="fb" id="fb"></p>`;
+        <div class="card q" data-id="${esc(w.id)}"><button class="star" id="st">${star(w)}</button><div class="prompt">${label}</div><div class="gr">${main}</div><button class="spk" id="spk">🔊</button></div>${body}<p class="fb" id="fb"></p>`;
       $("#spk").onclick = () => speak(w.gr); $("#st").onclick = () => { toggleFav(w); $("#st").textContent = star(w); };
       if (q.kind === "listen" || q.kind === "dict") speak(w.gr);
       const fin = (ok) => {

@@ -116,17 +116,81 @@
     return forward(state.net, x).y;
   }
   const risk = (w) => { const p = recallProb(w); return p == null ? null : 1 - p; };
+  const riskClass = (r) => (r < 0.33 ? "risklow" : r < 0.66 ? "riskmid" : "riskhigh");
+  const riskWord = (r) => (r < 0.33 ? "basso" : r < 0.66 ? "medio" : "alto");
 
   // usata da ripasso.js per ordinare le carte da rivedere: più alto = da proporre prima
   window.reviewPriority = (w) => { const r = risk(w); return r == null ? Math.random() : r; };
 
   try { maybeTrain(); } catch (e) {} // non deve mai bloccare l'avvio dell'app
 
-  // ---------- Sezione "più a rischio" nelle statistiche ----------
+  const st2 = document.createElement("style");
+  st2.textContent = `.riskbadge{font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;display:inline-block}
+.riskbadge.pos{position:absolute;top:58px;right:12px;cursor:pointer;border:0}
+.risklow{background:var(--okbg);color:var(--ok)}.riskmid{background:var(--line);color:var(--gold)}.riskhigh{background:var(--badbg);color:var(--bad)}
+.featrow{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}`;
+  document.head.appendChild(st2);
+
+  // ---------- Indicatore di rischio sulla carta del ripasso ----------
+  let badgeBusy = false;
+  new MutationObserver(() => {
+    if (badgeBusy || !state.net) return;
+    const card = view.querySelector(".card.q[data-id]");
+    if (!card || card.querySelector(".riskbadge")) return;
+    badgeBusy = true;
+    const w = WORDS.find((x) => x.id === card.dataset.id);
+    const r = w && risk(w);
+    if (r != null) {
+      const b = document.createElement("button");
+      b.className = `riskbadge pos ${riskClass(r)}`;
+      b.textContent = `rischio ${riskWord(r)}`;
+      b.onclick = (e) => { e.stopPropagation(); renderNetInfo(w.id); };
+      card.appendChild(b);
+    }
+    badgeBusy = false;
+  }).observe(view, { childList: true, subtree: true });
+
+  // ---------- Schermata "Come funziona la previsione" ----------
+  function featuresOf(w) {
+    const c = state.cards[w.id];
+    return { since: c && c.last != null ? today() - c.last : -1, box: c ? c.box : -1, laps: state.laps[w.id] || 0, len: w.gr.length, confuse: confusability(w) };
+  }
+  function renderNetInfo(presetId) {
+    const list = WORDS.filter((w) => state.cards[w.id]).concat(WORDS.filter((w) => !state.cards[w.id]));
+    const start = (presetId && WORDS.find((x) => x.id === presetId)) || list[0];
+    const draw = (id) => {
+      const w = WORDS.find((x) => x.id === id) || start;
+      const f = featuresOf(w), fv = featVec(f), p = recallProb(w), tr = totalReviews();
+      const rows = [
+        ["Giorni dall'ultima volta", f.since < 0 ? "mai vista" : f.since + " giorni", fv[0]],
+        ["Quanto è solida (scatola)", f.box < 0 ? "mai vista" : (f.box + 1) + " / " + INTERVALS.length, fv[1]],
+        ["Volte sbagliata in passato", String(f.laps), fv[2]],
+        ["Lunghezza della parola", f.len + " lettere", fv[3]],
+        ["Parole simili già note", String(f.confuse), fv[4]],
+      ];
+      view.innerHTML = `<button class="back" id="bk">‹ Progressi</button><h1>Come la rete stima il rischio<small>le informazioni che usa per ogni parola</small></h1>
+        <p class="hint" style="margin-top:0">Per ogni parola la rete guarda queste 5 informazioni e stima quanto è probabile che tu la ricordi ancora. Scegli una parola per vedere i suoi valori di adesso.</p>
+        <select id="wsel" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg);font:inherit;font-size:16px">
+          ${list.map((x) => `<option value="${esc(x.id)}" ${x.id === w.id ? "selected" : ""}>${esc(x.gr)} — ${esc(x.it)}${state.cards[x.id] ? "" : " (mai vista)"}</option>`).join("")}
+        </select>
+        <div class="card q" style="margin-top:14px;min-height:auto;padding:26px 20px">
+          <div class="gr" style="font-size:30px">${esc(w.gr)}</div><div class="tr">${esc(w.tr)}</div><div class="it">${esc(w.it)}</div>
+          <div style="margin-top:12px">${p == null ? `<span class="riskbadge riskmid">rete non ancora allenata · ${tr}/${MIN_REVIEWS} risposte registrate</span>` : `<span class="riskbadge ${riskClass(1 - p)}" style="font-size:14px">rischio di averla dimenticata: ${Math.round((1 - p) * 100)}%</span>`}</div>
+        </div>
+        <div style="margin-top:18px;display:grid;gap:12px">${rows.map(([l, v, n]) => `<div><div class="featrow"><span>${esc(l)}</span><span class="hint" style="margin:0">${esc(v)}</span></div><div class="progress"><div style="width:${Math.round(n * 100)}%"></div></div></div>`).join("")}</div>`;
+      $("#bk").onclick = () => go("stats");
+      $("#wsel").onchange = (e) => draw(e.target.value);
+    };
+    draw(start.id);
+  }
+
+  // ---------- Pulsanti in "Progressi" ----------
   const baseStats = renderStats;
   renderStats = function () {
     baseStats();
-    if (!state.net) return; // ancora in fase di raccolta dati: non mostriamo previsioni incerte
+    view.insertAdjacentHTML("beforeend", `<button class="big alt" id="goNetInfo">Come funziona la previsione <span>guarda le 5 informazioni usate</span></button>`);
+    $("#goNetInfo").onclick = () => renderNetInfo();
+    if (!state.net) return; // ancora in fase di raccolta dati: non mostriamo un elenco incerto
     const cand = WORDS.filter((w) => state.cards[w.id]);
     if (cand.length < 5) return;
     const top = cand.map((w) => ({ w, r: risk(w) })).sort((a, b) => b.r - a.r).slice(0, 5);
