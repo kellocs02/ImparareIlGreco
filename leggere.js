@@ -5,7 +5,7 @@
   state.dg = state.dg || {}; // stessa idea di state.al (lettere), ma per i gruppi
 
   const DG_SOUND = ['i (come "vita")', 'i (come "vita")', 'e (come "pesca")', 'u (come "luna")', 'b (come "banana")', 'd (come "dado")', 'g (come "gatto")', 'ts (come "pizza")', 'dz (come "zero")'];
-  const DG_EX = ["είμαι", "πλοίο", "και", "πού", "μπαμπάς", "ντομάτα", "γκολ", "τσάι", "τζάκι"];
+  const DG_EX = DIGRAPH_EX; // definito in data.js, così genera_lista.js trova questi testi e genera il loro audio
   const DG_IT = ["sono", "nave", "e", "dove", "papà", "pomodoro", "gol", "tè", "camino"];
 
   const digraphBox = (k) => (state.dg[k] ? state.dg[k].box : -1);
@@ -49,15 +49,24 @@
     const show = () => {
       if (i >= queue.length) return doneDg("Sessione finita", `Ne sapevi ${right} su ${queue.length}.`);
       const k = queue[i];
+      const distractPool = DIGRAPHS.map((_, j) => j).filter((j) => j !== k && DG_SOUND[j] !== DG_SOUND[k]);
+      const opts = shuffle([k, ...shuffle(distractPool).slice(0, 3)]);
       view.innerHTML = `<div class="progress"><div style="width:${(i / queue.length) * 100}%"></div></div><p class="count">${i + 1} / ${queue.length}</p>
         <div class="card" id="card"><div class="gr xl">${esc(DIGRAPHS[k][0])}</div><button class="spk" id="spk" aria-label="Ascolta">🔊</button>
-          <div id="back" hidden><div class="tr">${esc(DG_SOUND[k])}</div><div class="it">esempio: ${esc(DG_EX[k])} = ${esc(DG_IT[k])}</div></div>
-          <p class="tap" id="tap">Tocca per vedere il suono</p></div>
-        <div class="row" id="btns" hidden><button class="no" id="no">Non lo so</button><button class="yes" id="yes">Lo so</button></div>`;
+          <p class="tap">Che suono fa?</p></div>
+        <div class="opts">${opts.map((o) => `<button class="opt" data-k="${o}">${esc(DG_SOUND[o])}</button>`).join("")}</div>
+        <p class="fb" id="fb"></p>`;
       $("#spk").onclick = (e) => { e.stopPropagation(); speak(DG_EX[k]); };
-      $("#card").onclick = () => { $("#back").hidden = false; $("#btns").hidden = false; $("#tap").hidden = true; speak(DG_EX[k]); };
-      const next = (ok) => { gradeDigraph(k, ok); if (ok) right++; i++; show(); };
-      $("#no").onclick = () => next(false); $("#yes").onclick = () => next(true);
+      view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+        const o = +b.dataset.k, ok = o === k;
+        view.querySelectorAll(".opt").forEach((x) => { x.disabled = true; if (+x.dataset.k === k) x.classList.add("ok"); });
+        if (!ok) b.classList.add("bad");
+        gradeDigraph(k, ok); if (ok) right++;
+        speak(DG_EX[k]);
+        $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ Era"} <b>${esc(DIGRAPHS[k][0])}</b> = ${esc(DG_SOUND[k])}<br>esempio: ${esc(DG_EX[k])} = ${esc(DG_IT[k])}
+          <button class="big" id="nx">Avanti</button>`;
+        $("#nx").onclick = () => { i++; show(); };
+      }));
     };
     show();
   }

@@ -141,7 +141,8 @@ function runTest(qs, { title, onEnd, onExit }) {
     const q = qs[i];
     const body = q.typed
       ? `<div class="typebox"><input id="ans" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Scrivi qui la risposta">
-           <button class="big" id="chk" style="justify-content:center">Controlla</button></div>`
+           <button class="big" id="chk" style="justify-content:center">Controlla</button>
+           <button class="big alt" id="skip" style="justify-content:center">Salta</button></div>`
       : `<div class="opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}">${esc(o)}</button>`).join("")}</div>`;
     const sm = q.sm || [...q.main].length > 16;
     view.innerHTML = `
@@ -175,6 +176,7 @@ function runTest(qs, { title, onEnd, onExit }) {
       };
       $("#chk").onclick = check;
       inp.onkeydown = (e) => { if (e.key === "Enter") check(); };
+      $("#skip").onclick = () => { if (answered) return; answered = true; inp.disabled = true; $("#chk").hidden = true; $("#skip").hidden = true; reveal(false); };
     } else {
       view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
         const ok = q.opts[+b.dataset.k] === q.ans;

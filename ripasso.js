@@ -55,7 +55,7 @@
       if (q.kind === "choice" || q.kind === "listen") {
         q.opts = q.opts || shuffle([w].concat(shuffle(WORDS.filter((x) => x.id !== w.id && (x.cat === w.cat || WORDS.length < 12))).slice(0, 3)));
         body = `<div class="opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}">${esc(o.it)}</button>`).join("")}</div>`;
-      } else body = `<div class="typebox"><input id="ans" autocomplete="off" spellcheck="false" placeholder="Scrivi qui"><button class="big" id="chk" style="justify-content:center">Controlla</button></div>${kbHtml()}`;
+      } else body = `<div class="typebox"><input id="ans" autocomplete="off" spellcheck="false" placeholder="Scrivi qui"><button class="big" id="chk" style="justify-content:center">Controlla</button><button class="big alt" id="skip" style="justify-content:center">Salta</button></div>${kbHtml()}`;
       view.innerHTML = `<div class="progress"><div style="width:${((total - queue.length - 1) / total) * 100}%"></div></div><p class="count">${total - queue.length} / ${total}</p>
         <div class="card q" data-id="${esc(w.id)}"><button class="star" id="st">${star(w)}</button><div class="prompt">${label}</div><div class="gr">${main}</div><button class="spk" id="spk">🔊</button></div>${body}<p class="fb" id="fb"></p>`;
       $("#spk").onclick = () => speak(w.gr); $("#st").onclick = () => { toggleFav(w); $("#st").textContent = star(w); };
@@ -73,7 +73,8 @@
       }));
       else {
         const inp = $("#ans"); bindKb(inp);
-        $("#chk").onclick = () => { if (!inp.value.trim()) return; const ok = norm(inp.value) === norm(w.gr); inp.classList.add(ok ? "ok" : "bad"); $("#chk").hidden = true; fin(ok); };
+        $("#chk").onclick = () => { if (!inp.value.trim()) return; const ok = norm(inp.value) === norm(w.gr); inp.classList.add(ok ? "ok" : "bad"); $("#chk").hidden = true; $("#skip").hidden = true; fin(ok); };
+        $("#skip").onclick = () => { $("#chk").hidden = true; $("#skip").hidden = true; fin(false); };
       }
     };
     show();

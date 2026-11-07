@@ -137,6 +137,23 @@ const CATS = [
   ]}
 ];
 
+// Esempi per i gruppi di lettere e letture brevi: tenuti qui (non in leggere.js/letture.js) perché
+// genera_lista.js legge solo data.js e lessons.js per sapere quali testi devono avere un audio.
+const DIGRAPH_EX = ["είμαι", "πλοίο", "και", "πού", "μπαμπάς", "ντομάτα", "γκολ", "τσάι", "τζάκι"];
+
+const READINGS = [
+    { t: "Presentarsi", s: [["Γεια σου! Με λένε Νίκος.", "Ciao! Mi chiamo Nikos."], ["Είμαι από την Ιταλία.", "Sono dall'Italia."], ["Έχω μια μαμά και έναν μπαμπά.", "Ho una mamma e un papà."], ["Πίνω νερό και τρώω ψωμί.", "Bevo acqua e mangio pane."]],
+      g: "Γεια σου|ya su|ciao;Με λένε|me léne|mi chiamo;Είμαι|íme|sono;από|apó|da;την|tin|la;Ιταλία|Italía|Italia;Έχω|écho|ho;μια|mia|una;μαμά|mamá|mamma;και|ke|e;έναν|énan|un;μπαμπά|babá|papà;Πίνω|píno|bevo;νερό|neró|acqua;τρώω|tróo|mangio;ψωμί|psomí|pane" },
+    { t: "Al bar", s: [["Καλησπέρα! Θέλω έναν καφέ, παρακαλώ.", "Buonasera! Voglio un caffè, per favore."], ["Μου αρέσει ο καφές με γάλα.", "Mi piace il caffè con latte."], ["Δεν μου αρέσει το τσάι.", "Non mi piace il tè."], ["Το Σάββατο πίνω καφέ με τους φίλους μου.", "Il sabato bevo il caffè con i miei amici."]],
+      g: "Καλησπέρα|kalispéra|buonasera;Θέλω|thélo|voglio;έναν|énan|un;καφέ|kafé|caffè;παρακαλώ|parakaló|per favore;Μου αρέσει|mu arési|mi piace;ο|o|il;καφές|kafés|caffè;με|me|con;γάλα|gála|latte;Δεν|den|non;το|to|il;τσάι|tsái|tè;Σάββατο|Sávvato|sabato;πίνω|píno|bevo;τους|tus|i;φίλους|fílus|amici;μου|mu|miei" },
+    { t: "Ieri e domani", s: [["Χθες πήγα στο λιμάνι.", "Ieri sono andato al porto."], ["Είδα ένα μεγάλο πλοίο.", "Ho visto una grande nave."], ["Αύριο θα πάω στην παραλία.", "Domani andrò in spiaggia."], ["Θα φάω ψάρι και θα πιω κρασί.", "Mangerò pesce e berrò vino."]],
+      g: "Χθες|chtes|ieri;πήγα|píga|sono andato;στο|sto|al;λιμάνι|limáni|porto;Είδα|ída|ho visto;ένα|éna|un;μεγάλο|megálo|grande;πλοίο|plío|nave;Αύριο|ávrio|domani;θα|tha|(futuro);πάω|páo|vado;στην|stin|alla;παραλία|paralía|spiaggia;φάω|fáo|mangiare (dopo θα);ψάρι|psári|pesce;και|ke|e;πιω|pio|bere (dopo θα);κρασί|krasí|vino" },
+    { t: "La mia famiglia", s: [["Η οικογένειά μου είναι μεγάλη.", "La mia famiglia è grande."], ["Ο αδελφός μου είναι ψηλός και η αδελφή μου είναι μικρή.", "Mio fratello è alto e mia sorella è piccola."], ["Η γιαγιά μου έχει ένα όμορφο σπίτι.", "Mia nonna ha una bella casa."], ["Το σπίτι της είναι κοντά στη θάλασσα.", "La sua casa è vicino al mare."]],
+      g: "οικογένειά|ikoyénia|famiglia;μου|mu|mia / mio;είναι|íne|è;μεγάλη|megáli|grande;αδελφός|adelfós|fratello;ψηλός|psilós|alto;και|ke|e;αδελφή|adelfí|sorella;μικρή|mikrí|piccola;γιαγιά|yiayá|nonna;έχει|échi|ha;ένα|éna|un;όμορφο|ómorfo|bello;σπίτι|spíti|casa;της|tis|sua (di lei);κοντά|kondá|vicino;στη|sti|al / alla;θάλασσα|thálassa|mare" },
+    { t: "Ogni giorno", s: [["Κάθε μέρα ξυπνάω στις εφτά.", "Ogni giorno mi sveglio alle sette."], ["Χθες ξύπνησα αργά.", "Ieri mi sono svegliato tardi."], ["Όταν ήμουν παιδί, έπαιζα στην αυλή.", "Quando ero bambino, giocavo in cortile."], ["Αύριο θα ξυπνήσω νωρίς.", "Domani mi sveglierò presto."]],
+      g: "Κάθε|káthe|ogni;μέρα|méra|giorno;ξυπνάω|ksipnáo|mi sveglio;στις|stis|alle;εφτά|eftá|sette;Χθες|chtes|ieri;ξύπνησα|ksípnisa|mi sono svegliato;αργά|argá|tardi;Όταν|ótan|quando;ήμουν|ímun|ero;παιδί|pedí|bambino;έπαιζα|épeza|giocavo;στην|stin|nel;αυλή|avlí|cortile;Αύριο|ávrio|domani;θα|tha|(futuro);ξυπνήσω|ksipníso|mi sveglierò;νωρίς|norís|presto" },
+  ];
+
 const WORDS = CATS.flatMap(c => c.words.map((w, i) => ({
   id: c.id + "-" + i, cat: c.id, gr: w[0], tr: w[1], it: w[2]
 })));

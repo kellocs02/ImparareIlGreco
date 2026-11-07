@@ -86,11 +86,20 @@ function utter(text) {
   if (v) u.voice = v;
   return u;
 }
+let pendingClip = null; // { res, rej } dell'mp3 attualmente in attesa: va sbloccato se un nuovo audio lo interrompe
+function settlePendingClip() {
+  if (!pendingClip) return;
+  const p = pendingClip; pendingClip = null;
+  p.res(); // interrotto, non è un errore: lo risolviamo e basta, così la chiamata che lo aspettava non resta bloccata per sempre
+}
 function playUrl(url) {
   return new Promise((res, rej) => {
-    player.onended = res; player.onerror = rej;
+    settlePendingClip();
+    pendingClip = { res, rej };
+    player.onended = () => { pendingClip = null; res(); };
+    player.onerror = () => { pendingClip = null; rej(new Error("riproduzione audio non riuscita")); };
     player.src = url;
-    player.play().catch(rej);
+    player.play().catch((e) => { pendingClip = null; rej(e); });
   });
 }
 function synthSay(text) {
@@ -105,6 +114,7 @@ function synthSay(text) {
 async function playList(list) {
   const id = ++queueId;
   player.pause();
+  settlePendingClip(); // sblocca subito un eventuale audio precedente ancora in attesa, prima di iniziarne uno nuovo
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   for (const t of list) {
     if (id !== queueId) return; // un nuovo audio ha preso il posto di questo
@@ -214,55 +224,10 @@ function renderTrain() {
   $("#goLessons").onclick = () => { lv = null; sec = null; go("lessons"); };
 }
 
-// ---------- Ripasso (flashcard a ripetizione dilazionata) ----------
-function startReview() {
-  const all = pool().filter(isDue);
-  const fresh_ = all.filter((w) => !state.cards[w.id]).slice(0, 8);
-  const old = all.filter((w) => state.cards[w.id]);
-  const queue = shuffle(old.concat(fresh_));
-  if (!queue.length) {
-    view.innerHTML = `<div class="done"><div class="emoji">🎉</div><h2>Tutto in regola!</h2>
-      <p>Per questo tema non hai nulla da ripassare. Prova un altro tema o fai un quiz.</p>
-      <button class="big" id="b1">Fai un quiz</button></div>`;
-    $("#b1").onclick = () => go("quiz");
-    return;
-  }
-  let i = 0, right = 0;
-  const show = () => {
-    if (i >= queue.length) {
-      view.innerHTML = `<div class="done"><div class="emoji">✅</div><h2>Sessione finita</h2>
-        <p>Ne sapevi ${right} su ${queue.length}. Ottimo lavoro!</p>
-        <button class="big" id="b1">Torna alla home</button></div>`;
-      $("#b1").onclick = () => go("home");
-      return;
-    }
-    const w = queue[i];
-    view.innerHTML = `
-      <div class="progress"><div style="width:${(i / queue.length) * 100}%"></div></div>
-      <p class="count">${i + 1} / ${queue.length}</p>
-      <div class="card" id="card">
-        <div class="gr">${esc(w.gr)}</div>
-        <button class="spk" id="spk" aria-label="Ascolta">🔊</button>
-        <div class="back" id="back" hidden>
-          <div class="tr">${esc(w.tr)}</div>
-          <div class="it">${esc(w.it)}</div>
-        </div>
-        <p class="tap" id="tap">Tocca per vedere la traduzione</p>
-      </div>
-      <div class="row" id="btns" hidden>
-        <button class="no" id="no">Non lo so</button>
-        <button class="yes" id="yes">Lo so</button>
-      </div>`;
-    $("#spk").onclick = (e) => { e.stopPropagation(); speak(w.gr); };
-    $("#card").onclick = () => {
-      $("#back").hidden = false; $("#btns").hidden = false; $("#tap").hidden = true;
-    };
-    const next = (ok) => { grade(w, ok); if (ok) right++; i++; show(); };
-    $("#no").onclick = () => next(false);
-    $("#yes").onclick = () => next(true);
-  };
-  show();
-}
+// ---------- Ripasso ----------
+// La versione vera è in ripasso.js (sostituisce questa funzione): niente più "lo so/non lo so",
+// un esercizio diverso in base a quanto conosci ogni parola.
+function startReview() { if (window.console) console.warn("startReview: ripasso.js non è stato caricato"); }
 
 // ---------- Quiz (4 tipi di domanda) ----------
 // Confronto tollerante: ignora accenti, maiuscole, spazi e punteggiatura; ς = σ.
@@ -298,7 +263,8 @@ function startQuiz() {
     const spk = q.kind === "gr2it" || q.kind === "listen" ? `<button class="spk" id="spk" aria-label="Ascolta">🔊</button>` : "";
     const body = q.kind === "type"
       ? `<div class="typebox"><input id="ans" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Scrivi qui la risposta">
-           <button class="big" id="chk" style="justify-content:center">Controlla</button></div>`
+           <button class="big" id="chk" style="justify-content:center">Controlla</button>
+           <button class="big alt" id="skip" style="justify-content:center">Salta</button></div>`
       : `<div class="opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}">${esc(q.kind === "it2gr" ? o.gr : o.it)}</button>`).join("")}</div>`;
     view.innerHTML = `
       <div class="progress"><div style="width:${(i / qs.length) * 100}%"></div></div>
@@ -333,6 +299,7 @@ function startQuiz() {
       };
       $("#chk").onclick = check;
       inp.onkeydown = (e) => { if (e.key === "Enter") check(); };
+      $("#skip").onclick = () => { if (answered) return; answered = true; inp.disabled = true; $("#chk").hidden = true; $("#skip").hidden = true; reveal(false); };
     } else {
       view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
         const ok = q.opts[+b.dataset.k].id === w.id;

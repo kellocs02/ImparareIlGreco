@@ -399,29 +399,28 @@ function startAlphaCards() {
       $("#b1").onclick = startAlphaQuiz; $("#b2").onclick = () => go("alpha");
       return;
     }
-    const k = queue[i], l = ALPHABET[k];
+    const k = queue[i], l = ALPHABET[k], opts = alphaOpts(k);
     view.innerHTML = `
       <div class="progress"><div style="width:${(i / queue.length) * 100}%"></div></div>
       <p class="count">${i + 1} / ${queue.length}</p>
       <div class="card" id="card">
         <div class="gr xl">${both(k)}</div>
         <button class="spk" id="spk" aria-label="Ascolta">🔊</button>
-        <div id="back" hidden>
-          <div class="tr">${esc(l[2])}</div>
-          <div class="it">${ALPHA_IT[k]}</div>
-          <p class="tap" style="margin-top:10px">${esc(l[3])}</p>
-        </div>
-        <p class="tap" id="tap">Tocca per vedere il nome</p>
+        <p class="tap">Qual è il nome di questa lettera?</p>
       </div>
-      <div class="row" id="btns" hidden>
-        <button class="no" id="no">Non la so</button>
-        <button class="yes" id="yes">La so</button>
-      </div>`;
+      <div class="opts">${opts.map((o) => `<button class="opt" data-k="${o}">${both(o)} · ${esc(ALPHABET[o][2])}</button>`).join("")}</div>
+      <p class="fb" id="fb"></p>`;
     $("#spk").onclick = (e) => { e.stopPropagation(); speak(l[2]); };
-    $("#card").onclick = () => { $("#back").hidden = false; $("#btns").hidden = false; $("#tap").hidden = true; speak(l[2]); };
-    const next = (ok) => { gradeLetter(k, ok); logAnswer(ok); if (ok) right++; i++; show(); };
-    $("#no").onclick = () => next(false);
-    $("#yes").onclick = () => next(true);
+    view.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+      const o = +b.dataset.k, ok = o === k;
+      view.querySelectorAll(".opt").forEach((x) => { x.disabled = true; if (+x.dataset.k === k) x.classList.add("ok"); });
+      if (!ok) b.classList.add("bad");
+      gradeLetter(k, ok); logAnswer(ok); if (ok) right++;
+      speak(l[2]);
+      $("#fb").innerHTML = `${ok ? "✅ Giusto!" : "❌ Era"} <b>${both(k)}</b> <i>${esc(l[2])}</i> · ${ALPHA_IT[k]}<br>${esc(l[3])}
+        <button class="big" id="nx">Avanti</button>`;
+      $("#nx").onclick = () => { i++; show(); };
+    }));
   };
   show();
 }
