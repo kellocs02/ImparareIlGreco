@@ -2,7 +2,7 @@
 // Usa state, view, speak, grade, norm, shuffle, esc, isShort, sentencesIn, makeFillQs, makeConjQs... di app.js,
 // ma solo a run-time (dentro le funzioni), quindi l'ordine di caricamento rispetto ad app.js non conta.
 const PASS = 0.8;   // quota di risposte giuste per superare un test
-const TEST_N = 10;  // domande di un test d'unità
+const TEST_N = 15;  // domande di un test d'unità
 const FINAL_N = 15; // domande del test finale di livello
 
 // ---------- Stato: sblocchi ----------
@@ -59,7 +59,8 @@ function unitMeta(u) {
 // Una domanda è un oggetto: { kind, prompt, main, sub?, spk?, auto?, opts[], ans, typed?, accept?, say, after, pre?, w? }
 // (w = parola da registrare nel ripasso a scatole quando si risponde).
 const RANK = { gr2it: 0, tf: 1, listen: 1, fill: 2, conj: 2, it2gr: 3, type: 4 }; // dalle più facili alle più difficili
-const wordKinds = () => ("speechSynthesis" in window ? ["gr2it", "it2gr", "listen", "type"] : ["gr2it", "it2gr", "type"]);
+// "type" (scrivere in greco) tolto: resta solo scelta multipla e ascolto, niente più da digitare nei test.
+const wordKinds = () => ("speechSynthesis" in window ? ["gr2it", "it2gr", "listen"] : ["gr2it", "it2gr"]);
 
 // 3 risposte sbagliate plausibili: prima parole della stessa unità, poi del livello, poi del mazzo base.
 function wrongOpts(w, ctx, field) {

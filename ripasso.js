@@ -134,4 +134,7 @@
     h.insertAdjacentHTML("beforebegin", `<button class="big alt" id="goOrder">Riordina la frase <span>dalle lezioni</span></button><button class="big alt" id="goHard">Le mie parole <span>ostiche e preferiti</span></button>`);
     $("#goOrder").onclick = startOrder; $("#goHard").onclick = () => renderHard("hard");
   };
+
+  // esposta per poter avviare un ripasso mirato su un elenco di parole da un altro modulo (es. infinito.js)
+  window.reviewWords = (list) => { if (list && list.length) runReview(list, list.length); };
 })();
