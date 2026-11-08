@@ -1,4 +1,4 @@
-const CACHE = "ellinika-v29";
+const CACHE = "ellinika-v30";
 const AUDIO_CACHE = "ellinika-audio"; // separata: gli audio non si riscaricano a ogni nuova versione
 const FILES = ["./", "index.html", "style.css", "data.js", "lessons.js", "units.js", "path.js", "progress.js", "app.js", "ripasso.js", "letture.js", "extra.js", "layout.js", "forget.js", "leggere.js", "infinito.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
   "tank-battle.css", "tank-rules.js", "tank-arena.js", "tank-words.js", "tank-progress.js", "tank-battle.js"];

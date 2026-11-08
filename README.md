@@ -6,7 +6,7 @@ A lightweight web application for learning **Modern Greek**, designed primarily 
 
 ## Features
 
-- **Structured learning path** — lessons are organised into five progressive levels, from the Greek alphabet and pronunciation to verb tenses and more advanced sentence structures.
+- **Structured learning path** — lessons are organised into seven progressive levels, from the Greek alphabet and pronunciation, through verb tenses, to everyday vocabulary (home, body and health, shopping, work, food, nature, city and travel, feelings and traditions).
 - **Greek alphabet and pronunciation** — explore the letters, their sounds, and common letter combinations (digraphs).
 - **Vocabulary practice** — learn words grouped by topic, with Greek spelling, pronunciation guidance, and Italian translations.
 - **Interactive exercises** — practise with multiple-choice questions, written answers, listening exercises, and sentence-ordering activities.

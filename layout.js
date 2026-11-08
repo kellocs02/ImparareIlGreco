@@ -20,7 +20,7 @@
         <button class="tile2 main${nx ? "" : " off"}" id="goNext"><i>▶</i><b>Continua</b><span>${esc(nxLabel)}</span></button>
         <button class="tile2" id="goReview"><i>↻</i><b>Ripasso</b><span>${due} da fare</span></button>
         <button class="tile2" id="goTrain"><i>✎</i><b>Allenati</b><span>quiz e giochi</span></button>
-        <button class="tile2" id="goRead"><i>≡</i><b>Letture</b><span>5 testi graduati</span></button>
+        <button class="tile2" id="goRead"><i>≡</i><b>Letture</b><span>7 testi graduati</span></button>
         <button class="tile2 tank-tile" id="goTank"><i aria-hidden="true">⚡</i><b>Greek Tank Battle</b><span>Duelli di vocabolario nell’arena dell’Olimpo</span></button>
       </div>${backupNudge()}<h2>Livelli</h2><div class="lvchips">`;
     LEVELS.forEach((l, a) => {

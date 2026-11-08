@@ -62,5 +62,32 @@ const UNITS = [
     unit("l5-perfetto", "Il perfetto", part(4, 5)),
     unit("l5-parole", "Parole del tempo", part(4, 6)),
     unit("l5-frasi", "Frasi con tutti i tempi", part(4, 7), part(4, 8))
+  ],
+  [ // Livello 6: casa, corpo, salute, vestiti, acquisti, lavoro, verbi di ogni giorno
+    unit("l6-casa", "La casa e le stanze", part(5, 0)),
+    unit("l6-mobili", "Mobili e oggetti di casa", part(5, 1)),
+    unit("l6-cucina", "In cucina e in bagno", part(5, 2)),
+    unit("l6-corpo", "Il corpo umano", part(5, 3)),
+    unit("l6-salute", "Salute e dal medico", part(5, 4), part(5, 5)),
+    unit("l6-vestiti", "Vestiti e accessori", part(5, 6)),
+    unit("l6-acquisti", "Fare acquisti", part(5, 7), part(5, 8)),
+    unit("l6-lavoro", "Lavoro e professioni", part(5, 9)),
+    unit("l6-ufficio", "Ufficio, scuola e tecnologia", part(5, 10)),
+    unit("l6-verbi", "Verbi di ogni giorno", part(5, 11)),
+    unit("l6-medi", "I verbi in -ομαι", part(5, 12), part(5, 13))
+  ],
+  [ // Livello 7: cibo greco, natura, città, trasporti, tempo libero, sentimenti, contrari, feste
+    unit("l7-frutta", "Frutta e verdura", part(6, 0)),
+    unit("l7-cibo", "Carne, pesce, latticini e dolci", part(6, 1)),
+    unit("l7-greco", "Piatti della cucina greca", part(6, 2)),
+    unit("l7-animali", "Animali", part(6, 3)),
+    unit("l7-natura", "Natura e paesaggio", part(6, 4)),
+    unit("l7-citta", "In città", part(6, 5)),
+    unit("l7-trasporti", "Trasporti e viaggi", part(6, 6), part(6, 7)),
+    unit("l7-tempolibero", "Tempo libero e sport", part(6, 8)),
+    unit("l7-sentimenti", "Sentimenti e carattere", part(6, 9)),
+    unit("l7-contrari", "I contrari", part(6, 10)),
+    unit("l7-feste", "Feste e tradizioni", part(6, 11), part(6, 12)),
+    unit("l7-frasi", "Frasi per consolidare", part(6, 13))
   ]
 ];
