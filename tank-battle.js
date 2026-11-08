@@ -1,7 +1,11 @@
 // Schermate e ciclo di vita della modalità arcade.
 window.TankBattle = (() => {
-  const { tanks, difficulties, duration, specialCost, tierNames } = TankRules;
+  const { tanks, difficulties, duration, specialCost, tierNames, modes } = TankRules;
   const outcomes = { win: "Vittoria", loss: "Sconfitta", draw: "Pareggio" };
+  const promptText = { gr2it: "SCEGLI LA TRADUZIONE", it2gr: "SCEGLI LA PAROLA GRECA", listen: "ASCOLTA E SCEGLI LA TRADUZIONE" };
+  // Se il dispositivo non può riprodurre l'audio, "Ascolto" non è disponibile e si torna alle miste.
+  const modeOf = (progress) => Object.hasOwn(modes, progress.mode) && (progress.mode !== "listen" || TankWords.canListen())
+    ? progress.mode : "mixed";
   const timeText = (ms) => {
     const seconds = Math.ceil(Math.max(0, ms) / 1000);
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
@@ -62,6 +66,7 @@ window.TankBattle = (() => {
   function hub(focusTank = null) {
     const progress = TankProgress.get(), tank = selected(progress), errors = missedWords();
     const difficulty = Object.hasOwn(difficulties, progress.difficulty) ? progress.difficulty : "normal";
+    const mode = modeOf(progress);
     screen(`${header("Home", "home")}
       <section class="tb-hero" aria-labelledby="tb-title">
         <canvas id="tb-cover" role="img" aria-label="Due carri mitologici si affrontano davanti a un tempio greco"></canvas>
@@ -73,6 +78,10 @@ window.TankBattle = (() => {
         <label for="tb-difficulty">Difficoltà del duello<select id="tb-difficulty">
           ${Object.entries(difficulties).map(([id, rules]) => `<option value="${id}" ${id === difficulty ? "selected" : ""}>${rules.name}</option>`).join("")}
         </select></label>
+        <label for="tb-mode">Tipo di domande<select id="tb-mode">
+          ${Object.entries(modes).map(([id, label]) => `<option value="${id}" ${id === mode ? "selected" : ""}
+            ${id === "listen" && !TankWords.canListen() ? "disabled" : ""}>${label}</option>`).join("")}
+        </select></label>
         <button class="tb-button primary" id="tb-start">Entra nell’arena <span>▶</span></button>
       </div>
       <div class="tb-actions">
@@ -82,7 +91,8 @@ window.TankBattle = (() => {
       </div>
       <details class="tb-guide"><summary>Come si gioca</summary>
         <p>Ogni traduzione giusta lancia un colpo e carica energia. Dopo 3 risposte esatte di fila aumentano i danni. A 5, il prossimo speciale si potenzia. Rispondi entro 2,3 s per il bonus di precisione.</p>
-        <p>Lo speciale costa ${specialCost} energia. Vinci con un KO o, dopo 90 s, conservando la percentuale di HP più alta. Su tastiera usa 1–4 per rispondere ed E per lo speciale.</p>
+        <p>Lo speciale costa ${specialCost} energia. Vinci con un KO o, dopo 90 s, conservando la percentuale di HP più alta. Su tastiera usa 1–4 per rispondere, E per lo speciale e R per riascoltare.</p>
+        <p>Le domande possono essere dal greco all’italiano, dall’italiano al greco oppure di ascolto: scegli il tipo qui sopra. Le parole che sbagli tornano più spesso nei duelli successivi, finché non le azzecchi.</p>
       </details>
       <dl class="tb-stat-grid">${stat("Duelli giocati", Number(progress.games))}${stat("Vittorie", Number(progress.wins))}${stat("Esperienza", Number(progress.xp) + " PE")}</dl>
       <div class="tb-milestone">${nextGoal(progress)}</div>
@@ -93,10 +103,11 @@ window.TankBattle = (() => {
       TankArena.portrait(canvas, tanks.find((entry) => entry.id === canvas.dataset.portrait)));
     bind("home", () => go("home"));
     bind("hangar", () => { focus("roster"); $("#tb-roster").scrollIntoView(); });
-    bind("start", () => start(tank, $("#tb-difficulty").value));
+    bind("start", () => start(tank, $("#tb-difficulty").value, $("#tb-mode").value));
     bind("stats", stats);
     if (errors.length) bind("review", () => review(errors));
     $("#tb-difficulty").onchange = (event) => TankProgress.update({ difficulty: event.target.value });
+    $("#tb-mode").onchange = (event) => TankProgress.update({ mode: event.target.value });
     view.querySelectorAll("[data-select]:not(:disabled)").forEach((button) => {
       button.onclick = () => {
         TankProgress.update({ selected: button.dataset.select });
@@ -116,8 +127,9 @@ window.TankBattle = (() => {
   function updateText(el, text) { if (el.textContent !== text) el.textContent = text; }
   function updateValue(el, value) { if (el.value !== value) el.value = value; }
 
-  function start(tank, difficulty) {
-    const match = TankRules.duel({ tank, difficulty, nextPlayer: TankWords.deck(difficulty), nextBot: TankWords.deck(difficulty) });
+  function start(tank, difficulty, mode = modeOf(TankProgress.get())) {
+    // Solo il mazzo del giocatore pesca le parole sbagliate e usa i tipi di domanda scelti: il bot resta classico.
+    const match = TankRules.duel({ tank, difficulty, nextPlayer: TankWords.deck(difficulty, { weak: true, mode }), nextBot: TankWords.deck(difficulty) });
     screen(`<div class="tb-top"><button class="tb-link" id="tb-quit">‹ Lascia il duello</button>
       <span>DUELLO · ${difficulties[difficulty].name.toUpperCase()}</span></div>
       <div class="tb-combat" aria-label="Duello nell’arena">
@@ -134,6 +146,7 @@ window.TankBattle = (() => {
         <div class="tb-quiz-top"><span id="tb-prompt">SCEGLI LA TRADUZIONE</span><span id="tb-qtime"></span></div>
         <progress id="tb-question-bar" aria-label="Tempo per la domanda"></progress>
         <h1 id="tb-word" lang="el" tabindex="-1" aria-live="polite"></h1>
+        <button type="button" class="tb-button tb-replay" id="tb-replay" hidden>🔊 Riascolta</button>
         <div class="tb-answers">${Array.from({ length: 4 }, (_, i) =>
           `<button type="button" class="tb-answer"><span>${i + 1}</span><strong></strong></button>`).join("")}</div>
         <p class="tb-feedback" id="tb-feedback" role="status"></p>
@@ -165,17 +178,25 @@ window.TankBattle = (() => {
       const q = player.question;
       if (q !== shown) {
         shown = q;
-        updateText(elements.prompt, q ? "SCEGLI LA TRADUZIONE · " + tierNames[q.tier].toUpperCase() : "RIARMO IN CORSO");
-        if (q) updateText(elements.word, q.w.gr);
+        updateText(elements.prompt, q ? promptText[q.kind] + " · " + tierNames[q.tier].toUpperCase() : "RIARMO IN CORSO");
+        if (q) {
+          const listen = q.kind === "listen";
+          updateText(elements.word, listen ? "🔊 Ascolta" : q.kind === "it2gr" ? q.w.it : q.w.gr);
+          elements.word.lang = q.kind === "gr2it" ? "el" : "it";
+          elements.word.classList.toggle("is-italian", q.kind !== "gr2it"); // l'italiano può essere lungo: carattere più piccolo
+          elements.replay.hidden = !listen;
+          if (listen) speak(q.w.gr);
+        }
         choices.forEach((button, i) => {
           button.setAttribute("aria-disabled", String(!q));
           if (q) {
             updateText(button.lastElementChild, q.opts[i]);
+            button.lastElementChild.lang = q.kind === "it2gr" ? "el" : "it";
             button.classList.remove("is-right", "is-wrong");
           } else {
             const a = match.answers.at(-1);
             const option = button.lastElementChild.textContent;
-            button.classList.toggle("is-right", a.word.it === option);
+            button.classList.toggle("is-right", a.answer === option);
             button.classList.toggle("is-wrong", !a.ok && a.choice === option);
           }
         });
@@ -213,15 +234,20 @@ window.TankBattle = (() => {
     function special() {
       if (sync(performance.now()) && match.special()) update();
     }
+    function replay() {
+      if (shown?.kind === "listen") speak(shown.w.gr);
+    }
     document.addEventListener("visibilitychange", () => { last = performance.now(); }, { signal });
     window.addEventListener("pageshow", () => { last = performance.now(); }, { signal });
     document.addEventListener("keydown", (event) => {
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
       if (/^[1-4]$/.test(event.key)) choose(Number(event.key) - 1);
       else if (event.key.toLowerCase() === "e") special();
+      else if (event.key.toLowerCase() === "r") replay();
     }, { signal });
     bind("quit", hub);
     bind("special", special);
+    bind("replay", replay);
     choices.forEach((button, i) => { button.onclick = () => choose(i); });
     update();
     paint(match);

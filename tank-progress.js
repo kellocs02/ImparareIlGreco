@@ -4,7 +4,7 @@ const TankProgress = (() => {
     const stored = state.tankBattle;
     return {
       games: 0, wins: 0, losses: 0, draws: 0, correct: 0, best: 0, xp: 0, hardWins: 0,
-      selected: "hermes", difficulty: "normal",
+      selected: "hermes", difficulty: "normal", mode: "mixed",
       ...(stored && typeof stored === "object" ? stored : {}),
       uses: stored?.uses || {}, records: Array.isArray(stored?.records) ? stored.records.filter((entry) => entry && typeof entry === "object") : [],
       mistakes: Array.isArray(stored?.mistakes) ? stored.mistakes : []
@@ -47,8 +47,16 @@ const TankProgress = (() => {
     progress.uses = { ...progress.uses, [entry.tank]: (progress.uses[entry.tank] || 0) + 1 };
     if (answers.length) progress.records = [...progress.records, entry].sort((a, b) =>
       b.xp - a.xp || b.accuracy - a.accuracy || b.correct - a.correct || a.date - b.date).slice(0, 10);
+    // Come nel resto dell'app: +1 se sbagli, −1 se rispondi bene (a 0 la parola esce dal ripasso).
+    for (const { word, ok } of answers) {
+      if (ok) {
+        for (const id of TankWords.errorIds(word)) {
+          if (state.err[id] > 1) state.err[id]--;
+          else delete state.err[id];
+        }
+      } else state.err[word.id] = Math.min((state.err[word.id] || 0) + 1, 9);
+    }
     const missed = answers.filter((answer) => !answer.ok).map(({ word }) => word.id);
-    for (const id of missed) state.err[id] = Math.min((state.err[id] || 0) + 1, 9);
     progress.mistakes = [...new Set([...missed, ...progress.mistakes])].filter((id) => state.err[id]);
     update(progress);
     const rewards = TankRules.tanks.filter((tank) => unlocked(tank, progress) && !before.includes(tank));

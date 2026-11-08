@@ -17,6 +17,8 @@ const TankRules = (() => {
     hard: { name: "Difficile", time: 8000, speed: [2400, 4350], correct: 9, tiers: [1, 2, 2, 2], tank: 2 }
   };
   const tierNames = ["Base", "Intermedia", "Avanzata"];
+  // Tipo di domande: miste, solo greco → italiano, solo italiano → greco, solo ascolto.
+  const modes = { mixed: "Miste", classic: "Greco → italiano", reverse: "Italiano → greco", listen: "Ascolto" };
   const events = ["Pioggia di meteoriti", "Scudo divino", "Ira di Zeus", "Velocità divina"];
   const range = (min, max) => min + Math.random() * (max - min);
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
@@ -61,27 +63,32 @@ const TankRules = (() => {
     }
 
     function resolve(unit, choice) {
-      const q = unit.question, elapsed = match.now - unit.asked, ok = choice === q.w.it;
+      const q = unit.question, elapsed = match.now - unit.asked, ok = choice === q.answer;
       const timeout = choice === null;
       unit.question = null;
       unit.response = unit.deadline = Infinity;
       const rearm = 1840 - unit.tank.speed * 135;
       unit.ready = match.now + rearm * (match.now < unit.slow ? 1.65 : 1);
       if (ok) {
-        const quick = elapsed <= 2300;
+        // Nell'ascolto il tempo include la pronuncia della parola: un po' di margine in più.
+        const quick = elapsed <= 2300 + (q.kind === "listen" ? 1200 : 0);
         unit.best = Math.max(unit.best, ++unit.combo);
         unit.correct++;
         if (unit.combo === 5) unit.charged = true;
         const power = unit.tank.attack * (1 + q.tier * 0.12 + (quick ? 0.18 : 0) + (unit.combo >= 3 ? 0.24 : 0));
         unit.energy = Math.min(100, unit.energy + 16 + q.tier * 3 + (quick ? 3 : 0));
         fire(unit, power * (match.now < unit.rage ? 1.30 : 1));
-        if (unit === player) match.feedback = quick ? "Colpo di precisione!" : "Colpo a segno in arrivo!";
+        if (unit === player) {
+          // Nelle domande inverse e nell'ascolto mostro la coppia completa, per fissarla.
+          match.feedback = (quick ? "Colpo di precisione!" : "Colpo a segno in arrivo!") +
+            (q.kind === "gr2it" ? "" : " · " + q.w.gr + " = " + q.w.it);
+        }
       } else {
         unit.combo = 0;
         unit.wrong++;
-        if (unit === player) match.feedback = (timeout ? "Tempo scaduto" : "Risposta errata") + " · " + q.w.it;
+        if (unit === player) match.feedback = (timeout ? "Tempo scaduto" : "Risposta errata") + " · " + q.w.gr + " = " + q.w.it;
       }
-      if (unit === player) match.answers.push({ word: q.w, ok, elapsed, choice, timeout });
+      if (unit === player) match.answers.push({ word: q.w, ok, elapsed, choice, timeout, kind: q.kind, answer: q.answer });
       else if (unit.energy >= specialCost && botSpecial === Infinity) {
         botSpecial = match.now + (difficulty === "easy" ? range(6000, 10500) : range(650, 1400));
       }
@@ -111,7 +118,7 @@ const TankRules = (() => {
         accuracyBag = shuffle(Array.from({ length: 10 }, (_, i) => i < rules.correct));
       }
       const q = bot.question;
-      resolve(bot, accuracyBag.pop() ? q.w.it : pick(q.opts.filter((it) => it !== q.w.it)));
+      resolve(bot, accuracyBag.pop() ? q.answer : pick(q.opts.filter((it) => it !== q.answer)));
     }
 
     function useBotSpecial() {
@@ -213,5 +220,5 @@ const TankRules = (() => {
     return match;
   }
 
-  return { tanks, difficulties, duration, specialCost, tierNames, duel, position };
+  return { tanks, difficulties, duration, specialCost, tierNames, modes, duel, position };
 })();
