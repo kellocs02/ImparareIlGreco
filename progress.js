@@ -183,7 +183,7 @@ function renderStats() {
 
 // ---------- Backup ----------
 function backupJson() {
-  return JSON.stringify({ app: "ellinika", v: 1, saved: new Date().toISOString(), state });
+  return JSON.stringify({ app: "ellinika", v: 1, saved: new Date().toISOString(), state, arete: window.AreteDB ? AreteDB.exportData() : undefined });
 }
 function backupName() {
   const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -236,8 +236,10 @@ function restoreFrom(text) {
   state = Object.assign(fresh(), s);
   ["cards", "added", "pu", "pl", "log", "ach", "done", "err", "al"].forEach((k) => { if (!state[k] || typeof state[k] !== "object") state[k] = {}; });
   state.streak = Object.assign({ last: -1, count: 0 }, state.streak);
+  let ar = "";
+  if (data.arete && window.AreteDB) { try { AreteDB.importData(data.arete); ar = " (allenamenti ARETE inclusi)"; } catch (e) { ar = " (i dati ARETE del file non erano validi e non sono stati toccati)"; } }
   save(); syncDeck(); progressCheck(true);
-  toast("Progressi ripristinati ✓");
+  toast("Progressi ripristinati ✓" + ar);
   renderStats();
 }
 

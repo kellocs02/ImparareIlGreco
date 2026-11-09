@@ -170,13 +170,14 @@ function currentStreak() {
 
 // ---------- Navigazione ----------
 let tab = "home";
-const NAV_OF = { quiz: "train", match: "train", dict: "train", tank: "home" };
+const NAV_OF = { quiz: "train", match: "train", dict: "train", tank: "home", arete: "home" };
 function go(t) {
   if (tab === "tank") window.TankBattle.leave();
+  if (tab === "arete") window.Arete.leave();
   tab = t;
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === (NAV_OF[t] || t)));
   // renderHome (il percorso a livelli) è in path.js
-  ({ home: renderHome, train: renderTrain, lessons: renderLessons, review: startReview, quiz: startQuiz, alpha: renderAlpha, match: startMatch, stats: renderStats, dict: renderDict, tank: () => window.TankBattle.hub() })[t]();
+  ({ home: renderHome, train: renderTrain, lessons: renderLessons, review: startReview, quiz: startQuiz, alpha: renderAlpha, match: startMatch, stats: renderStats, dict: renderDict, tank: () => window.TankBattle.hub(), arete: () => window.Arete.open() })[t]();
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => {

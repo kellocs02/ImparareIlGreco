@@ -22,6 +22,7 @@
         <button class="tile2" id="goTrain"><i>✎</i><b>Allenati</b><span>quiz e giochi</span></button>
         <button class="tile2" id="goRead"><i>≡</i><b>Letture</b><span>7 testi graduati</span></button>
         <button class="tile2 tank-tile" id="goTank"><i aria-hidden="true">⚡</i><b>Greek Tank Battle</b><span>Duelli di vocabolario nell’arena dell’Olimpo</span></button>
+        <button class="tile2 arete-tile" id="goArete"><i aria-hidden="true">Α</i><b>ARETE</b><span>Allenamento in palestra: serie, routine, diario e progressi</span></button>
       </div>${backupNudge()}<h2>Livelli</h2><div class="lvchips">`;
     LEVELS.forEach((l, a) => {
       const n = UNITS[a].filter((u) => passedU(u.id)).length, open = levelOpen(a);
@@ -39,6 +40,7 @@
     $("#goTrain").onclick = () => go("train");
     $("#goRead").onclick = () => { go("train"); const b = $("#goRead"); if (b) b.click(); };
     $("#goTank").onclick = () => go("tank");
+    $("#goArete").onclick = () => go("arete");
     $("#free").onclick = () => { state.free = !state.free; save(); renderHome(); };
     bindHome();
   };
