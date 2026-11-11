@@ -117,7 +117,7 @@ select.ar-in { appearance: none; background-image: linear-gradient(45deg, transp
 .ar-ex-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 0 4px; } .ar-ex-head b { font: 600 18px/1.25 var(--serif); }
 .ar-dots { min-width: 44px; min-height: 44px; border: 0; background: none; color: var(--gold); font-size: 22px; line-height: 1; border-radius: 10px; }
 .ar-prev { margin: 8px 4px 10px; padding: 8px 10px; border-left: 2px solid var(--gold2); background: rgba(201,162,75,.06); font-size: 13px; color: var(--beige); } .ar-prev b { color: var(--gold); font-weight: 600; }
-.ar-sethead, .ar-set { display: grid; grid-template-columns: 26px 1fr 64px 56px 46px 32px; gap: 6px; align-items: center; }
+.ar-sethead, .ar-set { display: grid; grid-template-columns: 38px 1fr 64px 56px 46px 32px; gap: 6px; align-items: center; }
 .ar-sethead { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); text-align: center; padding: 0 0 4px; }
 .ar-set { margin: 6px 0; padding: 3px 0; border-radius: 12px; } .ar-set.done { background: rgba(156,196,135,.1); }
 .ar-set .n { text-align: center; color: var(--muted); font-weight: 600; }
@@ -178,3 +178,26 @@ select.ar-in { appearance: none; background-image: linear-gradient(45deg, transp
 .tile2.arete-tile { grid-column: 1 / -1; display: grid; grid-template-columns: 48px minmax(0, 1fr); column-gap: 13px; min-height: 76px; color: #f3ecd9; background: linear-gradient(110deg, #1b1814, #0e0d0c 75%); border-color: #c9a24b; }
 .tile2.arete-tile i { grid-row: span 2; align-self: center; justify-self: center; color: #c9a24b; font: 600 30px var(--serif); font-style: normal; }
 .tile2.arete-tile b { color: #f3ecd9; letter-spacing: .12em; } .tile2.arete-tile span { color: #bfb39a; }
+
+/* ---- v2: preferiti, serie di riscaldamento, obiettivo settimanale, misure del corpo ---- */
+.ar-pickrow { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.ar-pickrow .ar-pick { flex: 1; min-width: 0; border-bottom: 0; }
+.ar-star { flex: none; width: 48px; min-height: 56px; border: 0; background: none; color: var(--muted); font-size: 23px; }
+.ar-star.on, .ar-favmark { color: var(--gold); }
+.ar-note.small { font-size: 12.5px; margin: 4px 0; }
+.ar-set .ar-sn { min-height: 46px; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: none; color: var(--muted); font-weight: 700; font-size: 15px; }
+.ar-set .ar-sn.on { background: rgba(201,162,75,.16); border-color: var(--gold2); color: var(--gold); }
+.ar-set.warm { box-shadow: inset 2px 0 0 var(--gold2); }
+tr.warm td { color: var(--muted); font-style: italic; }
+.ar-goal-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ar-goal-top span { color: var(--gold); font: 700 20px var(--serif); font-variant-numeric: tabular-nums; }
+.ar-goal i.bar { display: block; height: 9px; margin: 10px 0 8px; border-radius: 99px; background: #12100e; border: 1px solid var(--line); overflow: hidden; }
+.ar-goal i.bar b { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--gold2), var(--gold)); transition: width .3s; }
+.ar-goal small { color: var(--muted); font-size: 13px; }
+.ar-goal.reached { border-color: var(--gold); }
+.ar-bm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+input[type="date"].ar-in { color-scheme: dark; min-height: 46px; }
+.ar-tbl.bm { font-size: 12.5px; } .ar-tbl.bm th, .ar-tbl.bm td { padding: 7px 3px; text-align: center; } .ar-tbl.bm td:first-child, .ar-tbl.bm th:first-child { text-align: left; white-space: nowrap; }
+.ar-tbl.bm .ar-rm { min-height: 36px; padding: 0 4px; }
+.bm-list { padding: 4px 14px; } .bm-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); } .bm-row:first-child { border-top: 0; }
+.bm-row b { display: block; font-weight: 600; } .bm-row small { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; line-height: 1.4; }

@@ -4,16 +4,28 @@
 
   // ---------- Selettore esercizi (riusato da allenamento e routine) ----------
   let pick = { q: "", muscle: "", sel: new Set(), cb: null, title: "Aggiungi esercizi" };
+  const pickRow = (e) => `<div class="ar-pickrow"><button class="ar-pick${pick.sel.has(e.id) ? " on" : ""}" data-act="pick-toggle" data-id="${e.id}"><span class="ck">${pick.sel.has(e.id) ? "✓" : ""}</span><span><b>${esc(e.name)}</b><small>${esc(fmt.muscle(e.primary))}${e.equipment ? " · " + esc(e.equipment) : ""}</small></span></button><button class="ar-star${e.fav ? " on" : ""}" data-act="fav-toggle" data-id="${e.id}" aria-label="${e.fav ? "Togli dai preferiti" : "Aggiungi ai preferiti"}: ${esc(e.name)}" aria-pressed="${!!e.fav}">${e.fav ? "★" : "☆"}</button></div>`;
   function pickList() {
-    const l = DB.exercises.list({ q: pick.q, muscle: pick.muscle }).slice(0, 80);
-    return l.length ? l.map((e) => `<button class="ar-pick${pick.sel.has(e.id) ? " on" : ""}" data-act="pick-toggle" data-id="${e.id}"><span class="ck">${pick.sel.has(e.id) ? "✓" : ""}</span><span><b>${esc(e.name)}</b><small>${esc(fmt.muscle(e.primary))}${e.equipment ? " · " + esc(e.equipment) : ""}</small></span></button>`).join("")
-      : `<p class="ar-note">Nessun esercizio trovato. <button class="ar-link" data-act="pick-new">Crea un esercizio personalizzato</button></p>`;
+    const fav = pick.muscle === "_fav", muscle = fav ? "" : pick.muscle, q = pick.q.trim();
+    const l = DB.exercises.list({ q: pick.q, muscle, fav });
+    const missing = `<p class="ar-note">${l.length ? "Non trovi quello che cerchi?" : "Nessun esercizio trovato."} <button class="ar-link" data-act="pick-new">Crea «${q ? esc(q) : "un nuovo esercizio"}»</button></p>`;
+    if (!l.length) return (fav && !q ? `<p class="ar-note">Non hai ancora preferiti: tocca la stella accanto a un esercizio per aggiungerlo.</p>` : "") + missing;
+    let h = "";
+    if (!q && !muscle && !fav) { // vista iniziale: prima gli esercizi che usi di più
+      const rec = DB.exercises.recent(5), fv = DB.exercises.list({ fav: true }).slice(0, 8);
+      if (rec.length) h += `<h3 class="ar-h3">Recenti</h3>${rec.map(pickRow).join("")}`;
+      if (fv.length) h += `<h3 class="ar-h3">Preferiti</h3>${fv.map(pickRow).join("")}`;
+      if (h) h += `<h3 class="ar-h3">Tutti gli esercizi</h3>`;
+    }
+    const shown = l.slice(0, 80);
+    return h + shown.map(pickRow).join("") + (l.length > shown.length ? `<p class="ar-note">Altri ${l.length - shown.length} esercizi: usa la ricerca o i gruppi muscolari.</p>` : "") + missing;
   }
   const pickCount = () => (pick.sel.size ? `Aggiungi (${pick.sel.size})` : "Seleziona gli esercizi");
   function pickExercise(cb, title) {
     pick = { q: "", muscle: "", sel: new Set(), cb: cb || ((ids) => { const a = DB.workouts.active(); if (a) ids.forEach((i) => DB.workouts.addExercise(a.id, i)); A.render(); }), title: title || "Aggiungi esercizi" };
     A.modal(`<input class="ar-in" id="pickQ" data-inp="pick-q" placeholder="Cerca un esercizio…" autocomplete="off" aria-label="Cerca">
-      <div class="ar-chips scroll"><button class="ar-chip on" data-act="pick-m" data-m="">Tutti</button>${DB.MUSCLES.map((m) => `<button class="ar-chip" data-act="pick-m" data-m="${m}">${fmt.muscle(m)}</button>`).join("")}</div>
+      <button class="ar-btn ghost sm" data-act="pick-new" style="margin:8px 0 2px">+ Nuovo esercizio (non nell'elenco)</button>
+      <div class="ar-chips scroll"><button class="ar-chip on" data-act="pick-m" data-m="">Tutti</button><button class="ar-chip" data-act="pick-m" data-m="_fav">★ Preferiti</button>${DB.MUSCLES.map((m) => `<button class="ar-chip" data-act="pick-m" data-m="${m}">${fmt.muscle(m)}</button>`).join("")}</div>
       <div id="pickList" class="ar-picklist">${pickList()}</div>
       <div class="ar-sticky"><button class="ar-btn" id="pickGo" data-act="pick-go" disabled>${pickCount()}</button></div>`, { title: pick.title, wide: true });
   }
@@ -38,15 +50,17 @@
   function exCard(x, w, idx, total) {
     const prev = DB.previous(x.exerciseId, w.id), ps = prev ? prev.sets : [];
     const plan = x.plan || {}, planTxt = [plan.sets ? `${plan.sets} serie` : "", plan.reps ? plan.reps + " rip." : "", plan.rest != null ? `rec. ${plan.rest} s` : ""].filter(Boolean).join(" · ");
+    let wi = 0; // numero della serie di lavoro: le serie di riscaldamento (R) non sono numerate né confrontate con l'ultima volta
     const rows = x.sets.map((s, k) => {
-      const pv = ps[k] || null, fb = pv || ps[ps.length - 1] || null; // fb = ciò che ✓ userà se il campo è vuoto (e che il segnaposto mostra)
-      return `<div class="ar-set${s.done ? " done" : ""}" data-set="${s.id}">
-        <span class="n">${k + 1}</span>
+      const warm = s.type === "warmup", num = warm ? "R" : String(++wi);
+      const pv = warm ? null : ps[wi - 1] || null, fb = warm ? null : pv || ps[ps.length - 1] || null; // fb = ciò che ✓ userà se il campo è vuoto (e che il segnaposto mostra)
+      return `<div class="ar-set${s.done ? " done" : ""}${warm ? " warm" : ""}" data-set="${s.id}">
+        <button class="n ar-sn${warm ? " on" : ""}" data-act="set-type" data-id="${s.id}" aria-label="Serie ${k + 1}: ${warm ? "riscaldamento (tocca per renderla di lavoro)" : "di lavoro (tocca per segnarla come riscaldamento)"}" aria-pressed="${warm}">${num}</button>
         <span class="pv">${pv ? `${A.num(pv.weight)}×${pv.reps}` : "—"}</span>
-        <input class="ar-in n" inputmode="decimal" autocomplete="off" aria-label="Kg serie ${k + 1}" data-chg="set-w" data-inp="set-w-i" data-id="${s.id}" data-done="${s.done ? 1 : 0}" placeholder="${fb ? A.num(fb.weight) : "kg"}" value="${s.weight === null ? "" : A.num(s.weight)}">
-        <input class="ar-in n" inputmode="numeric" autocomplete="off" aria-label="Ripetizioni serie ${k + 1}" data-chg="set-r" data-inp="set-r-i" data-id="${s.id}" data-done="${s.done ? 1 : 0}" placeholder="${fb ? fb.reps : plan.reps || "rip"}" value="${s.reps === null ? "" : s.reps}">
-        <button class="ar-ck${s.done ? " on" : ""}" data-act="set-done" data-id="${s.id}" data-we="${x.id}" aria-label="${s.done ? "Segna come non fatta" : "Completa serie"} ${k + 1}" aria-pressed="${s.done}">✓</button>
-        <button class="ar-rm" data-act="set-rm" data-id="${s.id}" aria-label="Elimina serie ${k + 1}">✕</button></div>`;
+        <input class="ar-in n" inputmode="decimal" autocomplete="off" aria-label="Kg serie ${num}" data-chg="set-w" data-inp="set-w-i" data-id="${s.id}" data-done="${s.done ? 1 : 0}" placeholder="${fb ? A.num(fb.weight) : "kg"}" value="${s.weight === null ? "" : A.num(s.weight)}">
+        <input class="ar-in n" inputmode="numeric" autocomplete="off" aria-label="Ripetizioni serie ${num}" data-chg="set-r" data-inp="set-r-i" data-id="${s.id}" data-done="${s.done ? 1 : 0}" placeholder="${fb ? fb.reps : plan.reps || "rip"}" value="${s.reps === null ? "" : s.reps}">
+        <button class="ar-ck${s.done ? " on" : ""}" data-act="set-done" data-id="${s.id}" data-we="${x.id}" aria-label="${s.done ? "Segna come non fatta" : "Completa serie"} ${num}" aria-pressed="${s.done}">✓</button>
+        <button class="ar-rm" data-act="set-rm" data-id="${s.id}" aria-label="Elimina serie ${num}">✕</button></div>`;
     }).join("");
     return `<section class="ar-ex">
       <div class="ar-ex-head"><div><b>${esc(x.exerciseName)}</b><small>${esc(fmt.muscle(x.primary))}${planTxt ? " · " + planTxt : ""}</small></div><button class="ar-dots" data-act="ex-menu" data-we="${x.id}" aria-label="Opzioni esercizio">⋯</button></div>
@@ -62,6 +76,7 @@
     h += `<div class="ar-card wk-top"><input class="ar-title-in" data-chg="wk-rename" maxlength="60" value="${esc(w.name)}" aria-label="Nome dell'allenamento">
       <div class="ar-clock"><span data-elapsed>${fmt.clock(DB.workouts.elapsed(w))}</span>${paused ? '<em class="pill">In pausa</em>' : ""}</div>
       <p class="ar-note">Iniziato ${fmt.dayShort(w.startedAt)} alle ${fmt.time(w.startedAt)}${w.routineName ? " · da «" + esc(w.routineName) + "»" : ""}</p>
+      <p class="ar-note small">Tocca il numero di una serie per segnarla come riscaldamento (R): non conta in volume, record e storico.</p>
       <div class="ar-btnrow"><button class="ar-btn ghost" data-act="wk-pause">${paused ? "▶ Riprendi" : "❚❚ Pausa"}</button><button class="ar-btn" data-act="wk-finish">Termina</button></div></div>`;
     if (w.rest) h += `<div class="ar-rest" role="timer"><div><small>Recupero</small><b data-rest></b></div><i class="bar"><b data-restbar></b></i><div class="r-btns"><button data-act="rest-adj" data-d="-15">−15</button><button data-act="rest-adj" data-d="15">+15</button><button data-act="rest-skip">Salta</button></div></div>`;
     h += w.exercises.length ? w.exercises.map((x, i) => exCard(x, w, i, w.exercises.length)).join("") : A.empty("Nessun esercizio", "Aggiungi gli esercizi che vuoi fare oggi.");
@@ -85,7 +100,7 @@
   const recMap = () => new Map(DB.records().map((r) => [r.exerciseId, r]));
   function finishWorkout(w) {
     const open = w.exercises.reduce((n, x) => n + x.sets.filter((s) => !s.done).length, 0);
-    if (!w.doneSets) { toast("Completa almeno una serie, oppure scarta l'allenamento"); return; }
+    if (!w.doneSets) { toast("Completa almeno una serie di lavoro (il riscaldamento non basta), oppure scarta l'allenamento"); return; }
     if (!confirm(`Terminare l'allenamento?${open ? `\n${A.plural(open, "serie non completata non verrà salvata", "serie non completate non verranno salvate")}.` : ""}`)) return;
     const before = recMap(), f = DB.workouts.finish(w.id), after = recMap(), prs = [];
     f.exercises.forEach((x) => {
@@ -104,7 +119,8 @@
     "pick-m": (el) => { pick.muscle = el.dataset.m; document.querySelectorAll('[data-act="pick-m"]').forEach((b) => b.classList.toggle("on", b === el)); refreshPick(); },
     "pick-toggle": (el) => { const id = +el.dataset.id; pick.sel.has(id) ? pick.sel.delete(id) : pick.sel.add(id); refreshPick(); },
     "pick-go": () => { const ids = [...pick.sel], cb = pick.cb; A.close(); if (ids.length && cb) cb(ids); },
-    "pick-new": () => { const q = pick.q; A.close(); if (A.exerciseForm) A.exerciseForm(null, { name: q, then: (id) => { pick.cb && pick.cb([id]); } }); },
+    "pick-new": () => { const q = pick.q; A.close(); if (A.exerciseForm) A.exerciseForm(null, { name: q, then: (id) => { pick.sel.add(id); const ids = [...pick.sel]; pick.cb && pick.cb(ids); } }); },
+    "fav-toggle": (el) => { const on = DB.exercises.toggleFav(+el.dataset.id); const l = $("#pickList"), y = l ? l.closest(".ar-sheet-body") : null, top = y ? y.scrollTop : 0; if (l) { refreshPick(); if (y) y.scrollTop = top; } toast(on ? "Aggiunto ai preferiti ★" : "Tolto dai preferiti"); },
     "start-pick": () => A.startEmpty(true),
     "ex-add": () => pickExercise(),
     "set-w-i": (el) => later(el, () => DB.workouts.updateSet(+el.dataset.id, { weight: el.value })),
@@ -117,6 +133,7 @@
     "wk-pause": () => { const w = DB.workouts.active(); w.status === "paused" ? DB.workouts.resume(w.id) : DB.workouts.pause(w.id); A.render(); },
     "wk-finish": () => finishWorkout(DB.workouts.active()),
     "wk-discard": () => { const w = DB.workouts.active(); if (confirm("Scartare l'allenamento? Tutto quello che hai inserito andrà perso.")) { DB.workouts.discard(w.id); A.show("workout"); toast("Allenamento scartato"); } },
+    "set-type": (el) => { const w = DB.workouts.active(), s = w.exercises.flatMap((y) => y.sets).find((y) => y.id === +el.dataset.id); DB.workouts.setType(s.id, s.type === "warmup" ? "normal" : "warmup"); A.render(); },
     "set-add": (el) => { DB.workouts.addSet(+el.dataset.we); A.render(); },
     "set-rm": (el) => { DB.workouts.removeSet(+el.dataset.id); A.render(); },
     "set-w": (el) => { const s = DB.workouts.updateSet(+el.dataset.id, { weight: el.value }); if (el.dataset.done === "1" && !s.done) A.render(); },
@@ -124,8 +141,8 @@
     "set-done": (el) => {
       const w = DB.workouts.active(), id = +el.dataset.id, row = el.closest(".ar-set"), ins = row.querySelectorAll("input");
       DB.workouts.updateSet(id, { weight: ins[0].value, reps: ins[1].value }); // legge quello che c'è scritto, anche se il campo non ha ancora "confermato"
-      const x = w.exercises.find((y) => y.id === +el.dataset.we), k = x.sets.findIndex((s) => s.id === id);
-      const prev = DB.previous(x.exerciseId, w.id), ps = prev ? prev.sets : [], pv = ps[k] || ps[ps.length - 1] || null;
+      const x = w.exercises.find((y) => y.id === +el.dataset.we), me = x.sets.find((s) => s.id === id), k = x.sets.filter((s) => s.type !== "warmup").findIndex((s) => s.id === id);
+      const prev = DB.previous(x.exerciseId, w.id), ps = prev ? prev.sets : [], pv = me && me.type === "warmup" ? null : ps[k] || ps[ps.length - 1] || null;
       const prefill = { weight: pv ? pv.weight : null, reps: pv ? pv.reps : null }; // solo i valori dell'ultima sessione, gli stessi mostrati nei segnaposto
       if (w.status === "paused") DB.workouts.resume(w.id); // completare una serie riprende il cronometro
       DB.workouts.toggleSet(id, prefill); A.render();

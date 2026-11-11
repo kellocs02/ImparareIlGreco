@@ -54,7 +54,7 @@
     A.modal(`<p class="ar-note">${fmt.dayLong(w.startedAt)} · ${fmt.time(w.startedAt)}${w.endedAt ? "–" + fmt.time(w.endedAt) : ""}${w.routineName ? " · routine «" + esc(w.routineName) + "»" : ""}</p>
       <div class="ar-sum"><div><b>${fmt.dur(w.duration)}</b><span>durata</span></div><div><b>${w.doneSets}</b><span>serie</span></div><div><b>${fmt.vol(w.volume)}</b><span>volume</span></div></div>
       ${w.notes ? `<p class="ar-quote-note">${esc(w.notes).replace(/\n/g, "<br>")}</p>` : ""}
-      ${w.exercises.map((x) => `<section class="ar-card det"><b>${esc(x.exerciseName)}</b><table class="ar-tbl"><thead><tr><th>Serie</th><th>Peso</th><th>Rip.</th></tr></thead><tbody>${x.sets.map((s, i) => `<tr><td>${i + 1}</td><td>${fmt.kg(s.weight || 0)}</td><td>${s.reps}</td></tr>`).join("")}</tbody></table>${x.notes ? `<p class="ar-note">📝 ${esc(x.notes)}</p>` : ""}</section>`).join("")}
+      ${w.exercises.map((x) => `<section class="ar-card det"><b>${esc(x.exerciseName)}</b><table class="ar-tbl"><thead><tr><th>Serie</th><th>Peso</th><th>Rip.</th></tr></thead><tbody>${(() => { let n = 0; return x.sets.map((s) => `<tr${s.type === "warmup" ? ' class="warm"' : ""}><td>${s.type === "warmup" ? "R" : ++n}</td><td>${fmt.kg(s.weight || 0)}</td><td>${s.reps}</td></tr>`).join(""); })()}</tbody></table>${x.notes ? `<p class="ar-note">📝 ${esc(x.notes)}</p>` : ""}</section>`).join("")}
       <button class="ar-btn ghost danger" data-act="wk-delete" data-id="${w.id}">Elimina questo allenamento</button>`, { title: w.name, wide: true });
   }
   A.openWorkout = openWorkout;

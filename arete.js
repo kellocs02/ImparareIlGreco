@@ -102,6 +102,16 @@ window.Arete = (() => {
     loadCredits().then((c) => { const el = $("#arCredit"); if (el && c && c[id]) el.textContent = " — " + c[id]; });
   }
 
+  // ---------- Obiettivo settimanale (lun–dom): conta gli allenamenti realmente conclusi ----------
+  function goalCard() {
+    const g = DB.goal();
+    if (!g.goal) return `<p class="ar-note small"><button class="ar-link" data-act="settings">Imposta un obiettivo settimanale ›</button></p>`;
+    const pct = Math.min(100, Math.round((g.done / g.goal) * 100)), reached = g.done >= g.goal;
+    return `<div class="ar-card ar-goal${reached ? " reached" : ""}"><div class="ar-goal-top"><b>Obiettivo della settimana</b><span>${g.done} / ${g.goal}</span></div>
+      <i class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${g.goal}" aria-valuenow="${Math.min(g.done, g.goal)}" aria-label="Allenamenti questa settimana"><b style="width:${pct}%"></b></i>
+      <small>${reached ? (g.done > g.goal ? `Obiettivo superato di ${g.done - g.goal}. ` : "Obiettivo raggiunto! ") : `Ti ${g.goal - g.done === 1 ? "manca" : "mancano"} ${plural(g.goal - g.done, "allenamento", "allenamenti")}. `}Da lunedì a domenica.</small></div>`;
+  }
+
   // ---------- Home ----------
   function home() {
     const s = DB.settings.get(), t = new Date(), wd = t.getDay();
@@ -114,6 +124,7 @@ window.Arete = (() => {
     h += `<p class="ar-welcome"><b>Χαῖρε${s.name ? ", " + esc(s.name) : ""}.</b> ${greet}: oggi è ${WDL[wd]}.</p>`;
     if (act) h += `<button class="ar-resume" data-act="goto" data-sec="workout"><span><b>Allenamento in corso</b><small>${esc(act.name)} · ${plural(act.doneSets, "serie completata", "serie completate")}</small></span><span class="ar-resume-t" data-elapsed>${fmt.clock(DB.workouts.elapsed(act))}</span></button>`;
     else h += `<button class="ar-btn big" data-act="start-empty">Inizia allenamento</button>`;
+    h += goalCard();
     h += `<h2 class="ar-h2">Oggi in programma</h2>`;
     if (todays.length) h += todays.map((r) => `<div class="ar-card row"><div><b>${esc(r.name)}</b><small>${plural(r.items.length, "esercizio", "esercizi")}${r.description ? " · " + esc(r.description) : ""}</small></div>${act ? "" : `<button class="ar-btn sm" data-act="start-routine" data-id="${r.id}">Inizia</button>`}</div>`).join("");
     else h += `<p class="ar-note">${rts.length ? "Nessuna routine assegnata a " + WDL[wd] + ". Puoi collegare le routine ai giorni della settimana dalla loro scheda." : "Non hai ancora creato routine."} <button class="ar-link" data-act="goto" data-sec="routines">${rts.length ? "Vai alle routine" : "Crea la prima routine"}</button></p>`;
@@ -135,6 +146,7 @@ window.Arete = (() => {
     const s = DB.settings.get();
     modal(`<label class="ar-lbl">Il tuo nome (facoltativo)<input class="ar-in" id="arsName" maxlength="30" value="${esc(s.name)}" autocomplete="off"></label>
       <label class="ar-lbl">Recupero predefinito tra le serie (secondi)<input class="ar-in" id="arsRest" inputmode="numeric" value="${s.rest}"></label>
+      <label class="ar-lbl">Obiettivo settimanale (allenamenti a settimana, 0 = nessuno)<input class="ar-in" id="arsGoal" inputmode="numeric" value="${s.weeklyGoal || 0}"></label>
       <p class="ar-note">Le unità sono i chilogrammi. I dati di ARETE restano sul telefono e sono inclusi nel backup di Ελληνικά (scheda Progressi, «Salva backup»).</p>
       <button class="ar-btn" data-act="settings-save">Salva</button>`, { title: "Impostazioni" });
   }
@@ -201,7 +213,7 @@ window.Arete = (() => {
     "start-empty": () => startEmpty(false),
     "start-routine": (el) => startRoutine(el.dataset.id),
     settings: () => settings(),
-    "settings-save": () => { DB.settings.set({ name: $("#arsName").value, rest: $("#arsRest").value }); close(); toast("Impostazioni salvate ✓"); render(); },
+    "settings-save": () => { DB.settings.set({ name: $("#arsName").value, rest: $("#arsRest").value, weeklyGoal: $("#arsGoal").value }); close(); toast("Impostazioni salvate ✓"); render(); },
     "wk-open": (el) => { if (Arete.openWorkout) Arete.openWorkout(+el.dataset.id); }
   });
   DB.onEvent((k, m) => { if (k === "error") toast(m); });

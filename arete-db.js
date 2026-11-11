@@ -13,19 +13,21 @@
 // è indipendente. Modificare o cancellare una routine non tocca mai gli allenamenti passati.
 (function (root) {
   const KEY = "arete-db-v1";
-  const TABLES = ["exercises", "routines", "routineExercises", "workouts", "workoutExercises", "sets"];
+  const TABLES = ["exercises", "routines", "routineExercises", "workouts", "workoutExercises", "sets", "measures"];
   const MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps", "quads", "hamstrings", "glutes", "calves", "abs"];
-  const BODYWEIGHT = ["Corpo libero", "Sbarra", "Parallele", "Ruota"];
+  const BODYWEIGHT = ["Corpo libero", "Sbarra", "Parallele", "Ruota", "Elastici"];
+  const DEF_SETTINGS = { name: "", rest: 90, weeklyGoal: 0 };
+  const MEASURES = { weight: ["Peso", "kg", 20, 400], waist: ["Vita", "cm", 30, 250], chest: ["Petto", "cm", 40, 250], hips: ["Fianchi", "cm", 40, 250], arm: ["Braccio", "cm", 10, 100], thigh: ["Coscia", "cm", 20, 150] };
   const LIM = { name: 60, desc: 300, notes: 500, instr: 800, maxKg: 1000, maxReps: 999, maxSets: 30, maxRest: 900 };
 
-  const empty = () => ({ v: 1, seq: 1, settings: { name: "", rest: 90 }, activeWorkoutId: null, exercises: [], routines: [], routineExercises: [], workouts: [], workoutExercises: [], sets: [] });
+  const empty = () => ({ v: 1, seq: 1, settings: Object.assign({}, DEF_SETTINGS), activeWorkoutId: null, exercises: [], routines: [], routineExercises: [], workouts: [], workoutExercises: [], sets: [], measures: [] });
   let db, lastError = null, loadNotice = null;
   const listeners = [];
 
   function normalize(d) {
     const out = Object.assign(empty(), d && typeof d === "object" ? d : {});
     TABLES.forEach((t) => { if (!Array.isArray(out[t])) out[t] = []; });
-    out.settings = Object.assign({ name: "", rest: 90 }, out.settings || {});
+    out.settings = Object.assign({}, DEF_SETTINGS, out.settings || {});
     const maxId = Math.max(0, ...TABLES.flatMap((t) => out[t].map((r) => +r.id || 0)));
     if (!(out.seq > maxId)) out.seq = maxId + 1;
     return out;
@@ -126,10 +128,19 @@
     return { name, primary: o.primary, secondary: [...new Set(secondary)], equipment: clean(o.equipment, 40, "Attrezzo"), instructions: cleanText(o.instructions, LIM.instr, "Istruzioni") };
   }
   const exercises = {
-    list: ({ q = "", muscle = "" } = {}) => {
+    list: ({ q = "", muscle = "", fav = false } = {}) => {
       const s = q.trim().toLowerCase();
-      return db.exercises.filter((e) => !e.archived && (!muscle || e.primary === muscle) && (!s || e.name.toLowerCase().includes(s)))
+      return db.exercises.filter((e) => !e.archived && (!muscle || e.primary === muscle) && (!fav || e.fav) && (!s || e.name.toLowerCase().includes(s)))
         .sort((a, b) => a.name.localeCompare(b.name, "it"));
+    },
+    toggleFav(i) { const e = byId("exercises", i); if (!e) fail("Esercizio non trovato"); e.fav = !e.fav; save(); return e.fav; },
+    // ultimi esercizi usati (allenamenti conclusi o in corso), dal più recente
+    recent(n = 8) {
+      const seen = new Set(), out = [];
+      db.workoutExercises.map((x) => ({ x, w: byId("workouts", x.workoutId) })).filter((o) => o.w)
+        .sort((a, b) => b.w.startedAt - a.w.startedAt || b.x.position - a.x.position)
+        .forEach(({ x }) => { if (out.length >= n || seen.has(x.exerciseId)) return; const e = byId("exercises", x.exerciseId); if (e && !e.archived) { seen.add(x.exerciseId); out.push(e); } });
+      return out;
     },
     get: (i) => byId("exercises", i) || null,
     add(o) { const e = Object.assign({ id: id(), key: null, custom: true, archived: false, created: now() }, exerciseInput(o)); db.exercises.push(e); save(); return e; },
@@ -199,14 +210,15 @@
     const end = w.endedAt || w.pausedAt || t;
     return Math.max(0, end - w.startedAt - (w.pausedMs || 0));
   }
+  const isWarm = (s) => s.type === "warmup"; // le serie di riscaldamento non contano in volume, record e storico
   function detail(wid) {
     const w = byId("workouts", wid); if (!w) return null;
     const exs = wxList(wid).map((x) => Object.assign({}, x, { sets: setsOf(x.id) }));
-    const done = exs.flatMap((x) => x.sets.filter((s) => s.done));
+    const done = exs.flatMap((x) => x.sets.filter((s) => s.done && !isWarm(s)));
     const volume = done.reduce((a, s) => a + (s.weight || 0) * (s.reps || 0), 0);
     return Object.assign({}, w, { exercises: exs, duration: elapsedMs(w), volume, doneSets: done.length });
   }
-  function newSetRow(weId, idx) { const s = { id: id(), workoutExerciseId: weId, idx, weight: null, reps: null, done: false, doneAt: null }; db.sets.push(s); return s; }
+  function newSetRow(weId, idx) { const s = { id: id(), workoutExerciseId: weId, idx, type: "normal", weight: null, reps: null, done: false, doneAt: null }; db.sets.push(s); return s; }
   function addWx(wid, exerciseId, plan) {
     const ex = byId("exercises", exerciseId); if (!ex) fail("Esercizio non trovato");
     const pos = wxList(wid).length;
@@ -256,6 +268,11 @@
       setsOf(x.id).forEach((y, k) => (y.idx = k));
       workouts.touch(byId("workouts", x.workoutId));
     },
+    setType(setId, type) { // "normal" | "warmup"
+      const s = byId("sets", setId); if (!s) fail("Serie non trovata");
+      if (type !== "normal" && type !== "warmup") fail("Tipo di serie non valido");
+      s.type = type; workouts.touch(byId("workouts", byId("workoutExercises", s.workoutExerciseId).workoutId)); return s;
+    },
     updateSet(setId, { weight, reps }) { // chi chiama deve intercettare VErr
       const s = byId("sets", setId); if (!s) fail("Serie non trovata");
       if (weight !== undefined) s.weight = weightOf(weight);
@@ -291,6 +308,7 @@
       const exs = wxList(wid);
       const doneSets = exs.flatMap((x) => setsOf(x.id).filter((s) => s.done));
       if (!doneSets.length) fail("Nessuna serie completata: completa almeno una serie oppure scarta l'allenamento");
+      if (!doneSets.some((s) => !isWarm(s))) fail("Hai completato solo serie di riscaldamento: completa almeno una serie di lavoro");
       exs.forEach((x) => {
         const mine = setsOf(x.id);
         if (!mine.some((s) => s.done)) { db.sets = db.sets.filter((s) => s.workoutExerciseId !== x.id); db.workoutExercises = db.workoutExercises.filter((y) => y.id !== x.id); return; }
@@ -322,7 +340,7 @@
     workouts.finished().forEach((w) => {
       if (w.id === excludeWorkoutId) return;
       w.exercises.filter((x) => x.exerciseId === exerciseId).forEach((x) => {
-        const sets = x.sets.filter((s) => s.done);
+        const sets = x.sets.filter((s) => s.done && !isWarm(s));
         if (!sets.length) return;
         out.push({ workoutId: w.id, date: w.startedAt, name: w.name, sets: sets.map((s) => ({ weight: s.weight || 0, reps: s.reps || 0 })),
           topWeight: Math.max(...sets.map((s) => s.weight || 0)), volume: sets.reduce((a, s) => a + (s.weight || 0) * (s.reps || 0), 0),
@@ -338,7 +356,7 @@
       const key = x.exerciseId;
       const rec = map.get(key) || { exerciseId: key, name: x.exerciseName, maxWeight: null, best1RM: null, bestVolume: null, sessions: 0 };
       let vol = 0, any = false;
-      x.sets.filter((s) => s.done).forEach((s) => {
+      x.sets.filter((s) => s.done && !isWarm(s)).forEach((s) => {
         any = true; const wt = s.weight || 0, rp = s.reps || 0; vol += wt * rp;
         if (!rec.maxWeight || wt > rec.maxWeight.weight || (wt === rec.maxWeight.weight && rp > rec.maxWeight.reps)) rec.maxWeight = { weight: wt, reps: rp, date: w.startedAt };
         const e = est1RM(wt, rp); if (e && (!rec.best1RM || e > rec.best1RM.value)) rec.best1RM = { value: e, weight: wt, reps: rp, date: w.startedAt };
@@ -367,11 +385,43 @@
   }
   const trainedExercises = () => { const ids = new Set(); db.workoutExercises.forEach((x) => { const w = byId("workouts", x.workoutId); if (w && w.status === "finished") ids.add(x.exerciseId); }); return [...ids].map((i) => byId("exercises", i)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name, "it")); };
 
-  // ---------- Impostazioni, backup ----------
+  // ---------- Misure del corpo ----------
+  // Una riga per giorno: salvare di nuovo lo stesso giorno aggiorna solo i valori inseriti.
+  const dayTs = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d, 12).getTime(); };
+  const measures = {
+    FIELDS: MEASURES,
+    list: () => db.measures.slice().sort((a, b) => b.day.localeCompare(a.day)),
+    latest: (field) => measures.list().find((m) => m[field] != null) || null,
+    save(o) {
+      const day = String(o.day || dateKey(now()));
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || dateKey(dayTs(day)) !== day) fail("Data non valida");
+      if (day > dateKey(now())) fail("La data non può essere nel futuro");
+      const vals = {};
+      Object.keys(MEASURES).forEach((f) => {
+        const n = parseNum(o[f]); if (n === null) return;
+        const [label, unit, lo, hi] = MEASURES[f];
+        if (Number.isNaN(n) || n < lo || n > hi) fail(`${label}: valore non valido (${lo}–${hi} ${unit})`);
+        vals[f] = Math.round(n * 10) / 10;
+      });
+      if (!Object.keys(vals).length) fail("Inserisci almeno una misura");
+      let r = db.measures.find((m) => m.day === day);
+      if (r) Object.assign(r, vals, { updated: now() }); else { r = Object.assign({ id: id(), day, created: now(), updated: now() }, vals); db.measures.push(r); }
+      save(); return r;
+    },
+    remove(i) { db.measures = db.measures.filter((m) => m.id !== i); save(); },
+    series: (field) => db.measures.filter((m) => m[field] != null).sort((a, b) => a.day.localeCompare(b.day)).map((m) => ({ t: dayTs(m.day), v: m[field], day: m.day, id: m.id }))
+  };
+
+  // ---------- Impostazioni, obiettivo settimanale, backup ----------
   const settings = {
     get: () => Object.assign({}, db.settings),
-    set(o) { db.settings = { name: clean(o.name, 30, "Nome"), rest: restOf(o.rest, 90) }; save(); }
+    set(o) {
+      const goal = o.weeklyGoal === undefined ? db.settings.weeklyGoal : parseNum(o.weeklyGoal === "" ? 0 : o.weeklyGoal);
+      if (goal === null || Number.isNaN(goal) || !Number.isInteger(goal) || goal < 0 || goal > 14) fail("Obiettivo settimanale: da 0 (nessuno) a 14 allenamenti");
+      db.settings = Object.assign({}, db.settings, { name: clean(o.name, 30, "Nome"), rest: restOf(o.rest, 90), weeklyGoal: goal }); save();
+    }
   };
+  const goal = () => ({ goal: db.settings.weeklyGoal || 0, done: weekly(1)[0].count });
   const exportData = () => JSON.parse(JSON.stringify(db));
   function importData(d) {
     if (!d || typeof d !== "object" || !Array.isArray(d.workouts) || !Array.isArray(d.exercises)) fail("Questi non sono dati di ARETE");
@@ -381,5 +431,5 @@
   const clearAll = () => { db = empty(); save(); };
 
   db = load();
-  root.AreteDB = { KEY, MUSCLES, LIM, VErr, exercises, routines, workouts, settings, seedExercises, history, previous, records, totals, byDay, weekly, monthly, trainedExercises, est1RM, dateKey, monday, exportData, importData, clearAll, activeId, parseNum, error: () => lastError, notice: () => loadNotice, clearNotice: () => (loadNotice = null), onEvent: (f) => listeners.push(f), _reload: () => (db = load()) };
+  root.AreteDB = { KEY, MUSCLES, LIM, VErr, exercises, routines, workouts, measures, settings, goal, seedExercises, history, previous, records, totals, byDay, weekly, monthly, trainedExercises, est1RM, dateKey, monday, exportData, importData, clearAll, activeId, parseNum, error: () => lastError, notice: () => loadNotice, clearNotice: () => (loadNotice = null), onEvent: (f) => listeners.push(f), _reload: () => (db = load()) };
 })(typeof window !== "undefined" ? window : globalThis);
