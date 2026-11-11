@@ -21,6 +21,7 @@
         <button class="tile2" id="goReview"><i>↻</i><b>Ripasso</b><span>${due} da fare</span></button>
         <button class="tile2" id="goTrain"><i>✎</i><b>Allenati</b><span>quiz e giochi</span></button>
         <button class="tile2" id="goRead"><i>≡</i><b>Letture</b><span>7 testi graduati</span></button>
+        <button class="tile2 vb-tile" id="goVerbi"><i aria-hidden="true">είμαι</i><b>Verbi fondamentali</b><span>Essere, avere e verbi modali: lezioni, frasi ed esercizi</span></button>
         <button class="tile2 tank-tile" id="goTank"><i aria-hidden="true">⚡</i><b>Greek Tank Battle</b><span>Duelli di vocabolario nell’arena dell’Olimpo</span></button>
         <button class="tile2 arete-tile" id="goArete"><i aria-hidden="true">Α</i><b>ARETE</b><span>Allenamento in palestra: serie, routine, diario e progressi</span></button>
       </div>${backupNudge()}<h2>Livelli</h2><div class="lvchips">`;
@@ -39,6 +40,7 @@
     $("#goReview").onclick = () => go("review");
     $("#goTrain").onclick = () => go("train");
     $("#goRead").onclick = () => { go("train"); const b = $("#goRead"); if (b) b.click(); };
+    $("#goVerbi").onclick = () => go("verbi");
     $("#goTank").onclick = () => go("tank");
     $("#goArete").onclick = () => go("arete");
     $("#free").onclick = () => { state.free = !state.free; save(); renderHome(); };
