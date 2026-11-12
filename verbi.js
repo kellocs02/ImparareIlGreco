@@ -118,7 +118,7 @@ window.Verbi = (() => {
     const secs = sections(), total = secs.reduce((n, s) => n + s.lessons.length, 0), done = secs.reduce((n, s) => n + doneCount(s), 0);
     return `<div class="vb">${back("home", "Home")}
       <h1>Verbi fondamentali <small>essere, avere e verbi modali · ${done}/${total} lezioni completate</small></h1>
-      <p class="vb-lead">Tre sezioni per partire dalle basi: ogni lezione ha tabelle con pronuncia, frasi da ascoltare ed esercizi. Per segnare una lezione come completata serve almeno il ${PASS}% nel suo esercizio finale.</p>
+      <p class="vb-lead">${["", "Una", "Due", "Tre", "Quattro", "Cinque", "Sei"][secs.length] || secs.length} sezioni per partire dalle basi: ogni lezione ha tabelle con pronuncia, frasi da ascoltare ed esercizi. Per segnare una lezione come completata serve almeno il ${PASS}% nel suo esercizio finale.</p>
       ${secs.map((s) => { const d = doneCount(s), pct = Math.round((100 * d) / s.lessons.length); return `<button class="vb-sec" data-vb="sec" data-id="${s.id}">
         <span class="vb-n">${s.n}</span><span class="vb-st"><b>${E(s.title)}</b><em>${E(s.it)}</em><small>${E(s.sub)}</small>${bar(pct, "Progresso " + s.it)}<small>${d} / ${s.lessons.length} lezioni</small></span><span class="vb-go" aria-hidden="true">›</span></button>`; }).join("")}
       <button class="vb-wide" data-vb="mixed">🎯 Allenamento misto <small>15 domande da tutte le sezioni</small></button></div>`;

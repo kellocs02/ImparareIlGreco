@@ -147,6 +147,7 @@ window.Arete = (() => {
     modal(`<label class="ar-lbl">Il tuo nome (facoltativo)<input class="ar-in" id="arsName" maxlength="30" value="${esc(s.name)}" autocomplete="off"></label>
       <label class="ar-lbl">Recupero predefinito tra le serie (secondi)<input class="ar-in" id="arsRest" inputmode="numeric" value="${s.rest}"></label>
       <label class="ar-lbl">Obiettivo settimanale (allenamenti a settimana, 0 = nessuno)<input class="ar-in" id="arsGoal" inputmode="numeric" value="${s.weeklyGoal || 0}"></label>
+      <label class="ar-lbl ar-chk"><input type="checkbox" id="arsBg" ${Bg.enabled() ? "checked" : ""}> Recupero anche a schermo spento: conto alla rovescia nella tendina e suono alla fine <small>(durante il recupero può mettere in pausa la musica)</small></label>
       <p class="ar-note">Le unità sono i chilogrammi. I dati di ARETE restano sul telefono e sono inclusi nel backup di Ελληνικά (scheda Progressi, «Salva backup»).</p>
       <button class="ar-btn" data-act="settings-save">Salva</button>`, { title: "Impostazioni" });
   }
@@ -163,7 +164,7 @@ window.Arete = (() => {
     document.querySelectorAll("[data-rest]").forEach((el) => { el.textContent = left === null ? "" : left > 0 ? fmt.clock(left * 1000) : "Recupero finito"; el.classList.toggle("done", left !== null && left <= 0); });
     const pct = a.rest ? Math.max(0, Math.min(100, (1 - left / a.rest.total) * 100)) : 0;
     document.querySelectorAll("[data-restbar]").forEach((el) => (el.style.width = pct + "%"));
-    if (a.rest && left <= 0 && restNotified !== a.rest.endsAt) { restNotified = a.rest.endsAt; beep(); toast("Recupero finito: prossima serie"); }
+    if (a.rest && left <= 0 && restNotified !== a.rest.endsAt) { restNotified = a.rest.endsAt; if (!Bg.active()) beep(); toast("Recupero finito: prossima serie"); }
   }
   function miniBar() {
     let m = $("#ar-mini"); const a = isOpen && section !== "workout" ? DB.workouts.active() : null;
@@ -171,6 +172,74 @@ window.Arete = (() => {
     if (!m) { m = document.createElement("button"); m.id = "ar-mini"; m.className = "ar-mini"; m.dataset.act = "goto"; m.dataset.sec = "workout"; document.body.appendChild(m); }
     m.innerHTML = `<span class="dot"></span><b>${esc(a.name)}</b><span data-elapsed>${fmt.clock(DB.workouts.elapsed(a))}</span><span class="rest" data-rest></span><span>›</span>`;
   }
+
+  // ---------- Recupero in background: contatore nella tendina del telefono + suono alla fine ----------
+  // Un browser non può programmare una notifica a pagina chiusa senza un server. Il trucco usato qui: durante il recupero
+  // si riproduce un audio silenzioso. Così la pagina resta attiva anche con lo schermo spento e il telefono mostra nella
+  // tendina un "lettore multimediale" con il conto alla rovescia (e −15 s / +15 s). Allo scadere parte il suono.
+  // Si può disattivare dalle impostazioni (⚙): l'audio può mettere in pausa la musica che stai ascoltando.
+  const Bg = (() => {
+    const KEY = "arete-bg";
+    const enabled = () => { try { return localStorage.getItem(KEY) !== "off"; } catch (e) { return true; } };
+    const setEnabled = (on) => { try { localStorage.setItem(KEY, on ? "on" : "off"); } catch (e) {} if (!on) stop(); };
+    let audio = null, mode = "off", rung = null, lastText = "", urls = {};
+    const wav = (samples, rate) => {
+      const n = samples.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf), w = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+      w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, samples[i], true);
+      return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+    };
+    const silence = () => urls.s || (urls.s = wav(Int16Array.from({ length: 16000 }, (_, i) => (i % 2 ? 1 : -1)), 8000)); // rumore di ampiezza 1/32768: inudibile
+    const alarm = () => {
+      if (urls.a) return urls.a;
+      const R = 22050, out = new Int16Array(Math.floor(R * 1.4)); // tre "bip" a 880 Hz
+      [0, 0.45, 0.9].forEach((t0) => { const a = Math.floor(t0 * R), len = Math.floor(0.3 * R); for (let i = 0; i < len; i++) { const env = Math.min(1, i / 200, (len - i) / 400); out[a + i] = Math.round(Math.sin((2 * Math.PI * 880 * i) / R) * 0.75 * 32767 * env); } });
+      return (urls.a = wav(out, R));
+    };
+    const ms = () => ("mediaSession" in navigator ? navigator.mediaSession : null);
+    const acts = () => {
+      const m = ms(); if (!m) return;
+      const adj = (d) => () => { try { const w = DB.workouts.active(); if (w && w.rest) { DB.workouts.adjustRest(w.id, d); if (isOpen) render(); poll(); } } catch (e) {} };
+      const set = (a, f) => { try { m.setActionHandler(a, f); } catch (e) {} };
+      set("previoustrack", adj(-15)); set("nexttrack", adj(15));
+      set("pause", () => { try { const w = DB.workouts.active(); if (w) DB.workouts.skipRest(w.id); } catch (e) {} stop(); if (isOpen) render(); });
+      set("play", () => {});
+    };
+    const meta = (title, artist, pos) => {
+      const m = ms(); if (!m) return;
+      const key = title + "|" + artist; if (key !== lastText) { lastText = key; try { m.metadata = new MediaMetadata({ title, artist, album: "⏮ −15 s    ⏭ +15 s", artwork: [{ src: "icon-192.png", sizes: "192x192", type: "image/png" }, { src: "icon-512.png", sizes: "512x512", type: "image/png" }] }); } catch (e) {} }
+      try { m.playbackState = "playing"; if (pos && m.setPositionState) m.setPositionState({ duration: pos[0], position: Math.max(0, Math.min(pos[0], pos[1])), playbackRate: 1 }); } catch (e) {}
+    };
+    function ensure() { if (!audio) { audio = new Audio(); audio.preload = "auto"; audio.setAttribute("playsinline", ""); } return audio; }
+    function playSrc(src, loop) { const a = ensure(); a.loop = loop; a.src = src; a.volume = 1; const p = a.play(); return p && p.then ? p.then(() => true, () => false) : Promise.resolve(true); }
+    function stop() {
+      mode = "off"; lastText = "";
+      if (audio) { try { audio.onended = null; audio.pause(); audio.removeAttribute("src"); audio.load(); } catch (e) {} }
+      const m = ms(); if (m) { try { m.playbackState = "none"; m.metadata = null; ["previoustrack", "nexttrack", "pause", "play"].forEach((a) => m.setActionHandler(a, null)); } catch (e) {} }
+    }
+    function startCount() { mode = "counting"; acts(); playSrc(silence(), true).then((ok) => { if (!ok && mode === "counting") mode = "off"; }); }
+    function ring() {
+      mode = "ringing"; meta("Recupero finito", "Prossima serie 💪", null);
+      playSrc(alarm(), false).then((ok) => { if (!ok) { mode = "off"; beep(); return; } if (audio) audio.onended = () => { if (mode === "ringing") stop(); }; setTimeout(() => { if (mode === "ringing") stop(); }, 4000); });
+    }
+    function poll() {
+      if (!enabled()) { if (mode !== "off") stop(); return; }
+      let a = null, r = null; try { a = DB.workouts.active(); r = a && a.rest; } catch (e) {}
+      if (!r) { if (mode === "counting") stop(); return; }
+      const left = Math.ceil((r.endsAt - Date.now()) / 1000);
+      if (left > 0) {
+        if (mode !== "counting") startCount();
+        if (mode === "counting") meta("Recupero " + fmt.clock(left * 1000), "ARETE · " + a.name, [r.total, r.total - left]);
+      } else if (mode === "counting" && rung !== r.endsAt) { rung = r.endsAt; ring(); }
+    }
+    // Sblocca l'audio al primo tocco (necessario su iPhone, innocuo altrove)
+    const unlock = () => { document.removeEventListener("pointerdown", unlock, true); if (!enabled()) return; try { const a = ensure(); a.src = silence(); a.volume = 0; const p = a.play(); if (p && p.then) p.then(() => { if (mode === "off") { a.pause(); a.removeAttribute("src"); } }, () => {}); } catch (e) {} };
+    document.addEventListener("pointerdown", unlock, true);
+    setInterval(poll, 500);
+    // true se è il modulo di background a gestire il suono di fine recupero (così non suona due volte)
+    return { active: () => mode === "counting" || mode === "ringing", enabled, setEnabled, stop, poll };
+  })();
 
   // ---------- Navigazione ----------
   function nav() {
@@ -213,7 +282,7 @@ window.Arete = (() => {
     "start-empty": () => startEmpty(false),
     "start-routine": (el) => startRoutine(el.dataset.id),
     settings: () => settings(),
-    "settings-save": () => { DB.settings.set({ name: $("#arsName").value, rest: $("#arsRest").value, weeklyGoal: $("#arsGoal").value }); close(); toast("Impostazioni salvate ✓"); render(); },
+    "settings-save": () => { DB.settings.set({ name: $("#arsName").value, rest: $("#arsRest").value, weeklyGoal: $("#arsGoal").value }); Bg.setEnabled($("#arsBg").checked); close(); toast("Impostazioni salvate ✓"); render(); },
     "wk-open": (el) => { if (Arete.openWorkout) Arete.openWorkout(+el.dataset.id); }
   });
   DB.onEvent((k, m) => { if (k === "error") toast(m); });

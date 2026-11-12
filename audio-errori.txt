@@ -1,0 +1,42 @@
+Αύριο θα έχω χρόνο.
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+Έχει πολλή κίνηση.
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+Έχω καιρό να σε δω.
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+έχω κάνει
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+η ανησυχία
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+να μείνω
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+ο ζωγράφος
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+ο συγγραφέας
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+ο φόβος
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+Οι φίλοι μου έχουν ένα σπίτι στο νησί.
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+πλούσιος ≠ φτωχός
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+Ποιος είναι αυτός
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+Πρέπει να φάμε.
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.
+το μαρούλι
+   NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+   -> Il servizio non ha restituito audio per questo testo.

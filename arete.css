@@ -201,3 +201,8 @@ input[type="date"].ar-in { color-scheme: dark; min-height: 46px; }
 .ar-tbl.bm .ar-rm { min-height: 36px; padding: 0 4px; }
 .bm-list { padding: 4px 14px; } .bm-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); } .bm-row:first-child { border-top: 0; }
 .bm-row b { display: block; font-weight: 600; } .bm-row small { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+
+/* Impostazioni: casella "recupero a schermo spento" */
+.ar-lbl.ar-chk { display: flex; gap: 10px; align-items: flex-start; line-height: 1.4; }
+.ar-lbl.ar-chk input { flex: none; width: 20px; height: 20px; margin-top: 1px; accent-color: var(--gold, #c9a227); }
+.ar-lbl.ar-chk small { display: block; opacity: .8; margin-top: 2px; }

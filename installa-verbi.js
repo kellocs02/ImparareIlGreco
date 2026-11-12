@@ -2,7 +2,7 @@
 // Uso (dalla cartella del progetto, quella con index.html):   node installa-verbi.js
 // È sicuro rilanciarlo: se una modifica c'è già, la salta. Se un file ha un aspetto inatteso non lo tocca e te lo dice.
 const fs = require("fs"), vm = require("vm"), path = require("path");
-const NEW_FILES = ["verbi.css", "verbi-data.js", "verbi-data-avere.js", "verbi-data-modali.js", "verbi.js"];
+const NEW_FILES = ["verbi.css", "verbi-data.js", "verbi-data-avere.js", "verbi-data-modali.js", "verbi-data-quotidiani.js", "verbi.js"];
 const log = [], problems = [];
 const read = (f) => fs.readFileSync(f, "utf8");
 function write(f, text) {
@@ -25,11 +25,16 @@ edit("index.html", (s) => {
     if (links.length) { const m = links[links.length - 1], at = m.index + m[0].length; s = s.slice(0, at) + '<link rel="stylesheet" href="verbi.css">\n' + s.slice(at); }
     else s = s.replace("</head>", '<link rel="stylesheet" href="verbi.css">\n</head>');
   }
-  if (!s.includes('src="verbi.js"')) {
+  const jsFiles = NEW_FILES.filter((f) => f.endsWith(".js"));
+  const missing = jsFiles.filter((f) => !s.includes(`src="${f}"`));
+  if (missing.length) {
     const tags = [...s.matchAll(/<script[^>]*src="[^"]+"[^>]*><\/script>\s*\n?/g)];
-    const add = NEW_FILES.filter((f) => f.endsWith(".js")).map((f) => `<script src="${f}"></script>\n`).join("");
     if (!tags.length) throw new Error("non trovo i tag <script>");
-    const m = tags[tags.length - 1], at = m.index + m[0].length; s = s.slice(0, at) + add + s.slice(at);
+    const add = missing.map((f) => `<script src="${f}"></script>\n`).join("");
+    const vb = s.match(/<script[^>]*src="verbi\.js"[^>]*><\/script>\s*\n?/);
+    // i file con i dati vanno prima di verbi.js; se verbi.js non c'è ancora, tutto dopo l'ultimo script
+    if (vb && !missing.includes("verbi.js")) s = s.slice(0, vb.index) + add + s.slice(vb.index);
+    else { const m = tags[tags.length - 1], at = m.index + m[0].length; s = s.slice(0, at) + add + s.slice(at); }
   }
   return s;
 });
@@ -38,8 +43,9 @@ edit("sw.js", (s) => {
   const m = s.match(/(const\s+FILES\s*=\s*\[)([\s\S]*?)(\]\s*;)/);
   if (!m) throw new Error("non trovo l'elenco FILES");
   let out = s;
-  if (!m[2].includes('"verbi.js"')) {
-    const body = m[2].replace(/\s+$/, "").replace(/,$/, ""), add = NEW_FILES.map((f) => `"${f}"`).join(", ");
+  const miss = NEW_FILES.filter((f) => !m[2].includes(`"${f}"`));
+  if (miss.length) {
+    const body = m[2].replace(/\s+$/, "").replace(/,$/, ""), add = miss.map((f) => `"${f}"`).join(", ");
     out = s.replace(m[0], m[1] + body + ", " + add + m[3]);
   }
   const c = out.match(/(const\s+CACHE\s*=\s*"[^"]*?v)(\d+)(")/); // nuova versione della cache, così i file nuovi si scaricano
@@ -63,7 +69,7 @@ edit("layout.js", (s) => {
   if (!s.includes('id="goVerbi"')) {
     const lines = s.split("\n"), i = lines.findIndex((l) => l.includes('id="goRead"'));
     if (i < 0) throw new Error('non trovo il pulsante "Letture" (goRead)');
-    lines.splice(i + 1, 0, '        <button class="tile2 vb-tile" id="goVerbi"><i aria-hidden="true">είμαι</i><b>Verbi fondamentali</b><span>Essere, avere e verbi modali: lezioni, frasi ed esercizi</span></button>');
+    lines.splice(i + 1, 0, '        <button class="tile2 vb-tile" id="goVerbi"><i aria-hidden="true">είμαι</i><b>Verbi fondamentali</b><span>Essere, avere, verbi modali e verbi di tutti i giorni</span></button>');
     s = lines.join("\n");
   }
   if (!s.includes('$("#goVerbi")')) {

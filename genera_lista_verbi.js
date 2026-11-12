@@ -4,7 +4,7 @@
 const fs = require("fs"), crypto = require("crypto"), vm = require("vm");
 const ctx = vm.createContext({ window: {} });
 ctx.window = ctx;
-for (const f of ["verbi-data.js", "verbi-data-avere.js", "verbi-data-modali.js"])
+for (const f of ["verbi-data.js", "verbi-data-avere.js", "verbi-data-modali.js", "verbi-data-quotidiani.js"])
   vm.runInContext(fs.readFileSync(f, "utf8"), ctx, { filename: f });
 const D = ctx.VerbiData;
 
