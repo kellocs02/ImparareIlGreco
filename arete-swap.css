@@ -1,0 +1,7 @@
+/* ARETE — consigliere dei cambi */
+.sw-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.sw-t { min-width: 0; flex: 1; }
+.sw-t b { display: block; font-weight: 600; }
+.sw-t small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; font-weight: 400; }
+.sw-t small.sw-prev { color: var(--gold); }
+.sw-row .ar-btn { flex: none; }
