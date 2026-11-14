@@ -33,7 +33,7 @@
 /* contenuto delle lezioni */
 .vb-tab, .vb-ex, .vb-dlg { border-top: 1px solid var(--line); }
 .vb-r { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.vb-r.conj { grid-template-columns: 86px minmax(0, 1fr) auto; }
+.vb-r.conj { grid-template-columns: 104px minmax(0, 1fr) auto; }
 .vb-who { color: var(--muted); font: 14px/1.2 var(--serif); }
 .vb-gr { display: flex; flex-direction: column; min-width: 0; }
 .vb-gr b { font: 600 21px/1.25 var(--serif); overflow-wrap: anywhere; }
@@ -47,7 +47,7 @@
 .vb-l b { grid-column: 1; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
 .vb-l .vb-sp { grid-row: 1 / span 3; }
 .vb-g2 { margin: 0; font: 600 19px/1.35 var(--serif); }
-.hide-tr .vb-it { visibility: hidden; }
+.hide-tr .vb-it, .hide-tr .vb-pit { visibility: hidden; }
 .vb-tools { display: flex; justify-content: flex-end; margin: 4px 0 0; }
 .vb-note { display: flex; gap: 10px; margin: 14px 0; padding: 12px 14px; border-radius: 12px; background: var(--blue2); font-size: 15px; line-height: 1.45; }
 .vb-note.warn { background: var(--badbg); }
@@ -79,3 +79,11 @@
 .vb-wr small { display: block; color: var(--muted); }
 .vb-wr p { margin: 4px 0 0; font-size: 15px; } .vb-wr .why { color: var(--muted); } .vb-wr .gr { font-family: var(--serif); }
 @media (prefers-reduced-motion: reduce) { .vb-bar b { transition: none; } }
+
+/* Pronome tradotto sotto la forma greca */
+.vb-pit { display: block; margin-top: 2px; font: 13px/1.2 system-ui, sans-serif; font-style: normal; color: var(--muted); }
+/* Allenamento senza fine: ultime 10 risposte */
+.vb-win { display: flex; gap: 6px; margin: 8px 0 4px; }
+.vb-dot { flex: 1; height: 8px; border-radius: 99px; background: var(--blue2); }
+.vb-dot.ok { background: var(--ok); } .vb-dot.bad { background: var(--bad); }
+.vb-winl { margin: 0 0 6px; color: var(--muted); font-size: 13.5px; }

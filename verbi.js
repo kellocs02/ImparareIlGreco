@@ -6,6 +6,9 @@ window.Verbi = (() => {
   const E = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const uniq = (a) => [...new Set(a)];
+  // Pronomi personali greci con la traduzione italiana (mostrata nelle tabelle e usata negli esercizi)
+  const PRON_IT = { "εγώ": "io", "εσύ": "tu", "αυτός / αυτή / αυτό": "lui / lei / esso", "εμείς": "noi", "εσείς": "voi / Lei", "αυτοί / αυτές / αυτά": "loro" };
+  const WIN = 10, NEED = 9; // argomento imparato = almeno 9 risposte giuste nelle ultime 10
   const D = () => window.VerbiData || { sections: [] };
   const sections = () => D().sections.slice().sort((a, b) => a.n - b.n);
   const findSection = (id) => sections().find((s) => s.id === id);
@@ -56,6 +59,11 @@ window.Verbi = (() => {
           qs.push(mk(`Come si dice «${r[3]}»?`, b.title, r[1], pickOthers(forms, r[1]), `${r[0]} → ${r[1]} (${r[2]}) = ${r[3]}`, r[1], "conj"));
           if (forms.filter((f) => f === r[1]).length === 1) qs.push(mk(`Che cosa significa «${r[1]}»?`, b.title, r[3], pickOthers(its, r[3]), `${r[1]} (${r[2]}) = ${r[3]}`, r[1], "conj"));
         });
+        const pg = Object.keys(PRON_IT), pit = pg.map((p) => PRON_IT[p]);
+        b.rows.forEach((r) => { const it = PRON_IT[r[0]]; if (!it) return;
+          qs.push(mk(`Che cosa significa «${r[0]}»?`, "Pronomi personali", it, pickOthers(pit, it), `${r[0]} = ${it}`, r[0], "pron"));
+          qs.push(mk(`Come si dice «${it}» in greco?`, "Pronomi personali", r[0], pickOthers(pg, r[0]), `${it} = ${r[0]}`, r[0], "pron"));
+        });
       } else if (b.k === "table" && b.kind === "vocab") {
         const grs = b.rows.map((r) => r[0]), its = b.rows.map((r) => r[2]);
         b.rows.forEach((r) => {
@@ -105,7 +113,7 @@ window.Verbi = (() => {
     if (b.k === "table") {
       const conjK = b.kind === "conj";
       return `<h3 class="vb-h3">${E(b.title)}</h3><div class="vb-tab">${b.rows.map((r) => conjK
-        ? `<div class="vb-r conj"><span class="vb-who">${E(r[0])}</span><span class="vb-gr"><b>${E(r[1])}</b><i>${E(r[2])}</i></span>${spk(r[1])}<span class="vb-it">${E(r[3])}</span></div>`
+        ? `<div class="vb-r conj"><span class="vb-who">${E(r[0])}${PRON_IT[r[0]] ? `<em class="vb-pit">${E(PRON_IT[r[0]])}</em>` : ""}</span><span class="vb-gr"><b>${E(r[1])}</b><i>${E(r[2])}</i></span>${spk(r[1])}<span class="vb-it">${E(r[3])}</span></div>`
         : `<div class="vb-r"><span class="vb-gr"><b>${E(r[0])}</b><i>${E(r[1])}</i></span>${spk(r[0])}<span class="vb-it">${E(r[2])}</span></div>`).join("")}</div>`;
     }
     if (b.k === "ex") return `<h3 class="vb-h3">${E(b.title)}</h3><div class="vb-ex">${b.items.map((x) => `<div class="vb-e"><p class="vb-g2">${E(x[0])}</p>${spk(x[0])}<p class="vb-it">${E(x[1])}</p></div>`).join("")}</div>`;
@@ -118,7 +126,7 @@ window.Verbi = (() => {
     const secs = sections(), total = secs.reduce((n, s) => n + s.lessons.length, 0), done = secs.reduce((n, s) => n + doneCount(s), 0);
     return `<div class="vb">${back("home", "Home")}
       <h1>Verbi fondamentali <small>essere, avere e verbi modali · ${done}/${total} lezioni completate</small></h1>
-      <p class="vb-lead">${["", "Una", "Due", "Tre", "Quattro", "Cinque", "Sei"][secs.length] || secs.length} sezioni per partire dalle basi: ogni lezione ha tabelle con pronuncia, frasi da ascoltare ed esercizi. Per segnare una lezione come completata serve almeno il ${PASS}% nel suo esercizio finale.</p>
+      <p class="vb-lead">${["", "Una", "Due", "Tre", "Quattro", "Cinque", "Sei"][secs.length] || secs.length} sezioni per partire dalle basi: ogni lezione ha tabelle con pronuncia, frasi da ascoltare ed esercizi senza fine: ti alleni su quell'argomento finché non lo sai (almeno ${NEED} risposte giuste su ${WIN}) e la lezione risulta completata.</p>
       ${secs.map((s) => { const d = doneCount(s), pct = Math.round((100 * d) / s.lessons.length); return `<button class="vb-sec" data-vb="sec" data-id="${s.id}">
         <span class="vb-n">${s.n}</span><span class="vb-st"><b>${E(s.title)}</b><em>${E(s.it)}</em><small>${E(s.sub)}</small>${bar(pct, "Progresso " + s.it)}<small>${d} / ${s.lessons.length} lezioni</small></span><span class="vb-go" aria-hidden="true">›</span></button>`; }).join("")}
       <button class="vb-wide" data-vb="mixed">🎯 Allenamento misto <small>15 domande da tutte le sezioni</small></button></div>`;
@@ -132,7 +140,7 @@ window.Verbi = (() => {
       <h1>${E(s.title)} <small>${E(s.it)} · ${d}/${s.lessons.length} lezioni</small></h1>
       <p class="vb-lead">${E(s.intro)}</p>${bar(pct, "Progresso")}
       ${parts.map((p) => `<h2 class="vb-part">${E(p.part)}</h2>${p.items.map(({ l, i }) => { const r = db.lessons[l.id], ok = doneLesson(l.id);
-        return `<button class="vb-les${ok ? " ok" : ""}" data-vb="lesson" data-id="${l.id}"><span class="vb-ck" aria-hidden="true">${ok ? "✓" : i + 1}</span><span class="vb-lt"><b>${E(l.title)}</b><small>${r ? `Miglior risultato: ${r.best}%` : "Da iniziare"}</small></span><span class="vb-go" aria-hidden="true">›</span></button>`; }).join("")}`).join("")}
+        return `<button class="vb-les${ok ? " ok" : ""}" data-vb="lesson" data-id="${l.id}"><span class="vb-ck" aria-hidden="true">${ok ? "✓" : i + 1}</span><span class="vb-lt"><b>${E(l.title)}</b><small>${ok ? "Imparata ✓" : r ? "In corso" : "Da iniziare"}</small></span><span class="vb-go" aria-hidden="true">›</span></button>`; }).join("")}`).join("")}
       <h2 class="vb-part">Test della sezione</h2>
       <button class="vb-wide" data-vb="sectest" data-id="${s.id}">📝 Test finale: ${E(s.it)} <small>${t ? `Miglior risultato: ${t.best}% · ` : ""}12 domande da tutte le lezioni</small></button></div>`;
   }
@@ -145,11 +153,27 @@ window.Verbi = (() => {
       ${l.intro.map((p) => `<p class="vb-p">${E(p)}</p>`).join("")}
       <div class="vb-tools"><button class="vb-mini" data-vb="tr" aria-pressed="${st.hideTr}">${st.hideTr ? "👁 Mostra le traduzioni" : "🙈 Nascondi le traduzioni"}</button></div>
       ${l.blocks.map(renderBlock).join("")}
-      <button class="vb-wide primary" data-vb="quiz" data-id="${l.id}">✍️ Fai gli esercizi <small>${r ? `Miglior risultato: ${r.best}%` : "10 domande"}</small></button>
+      <button class="vb-wide primary" data-vb="drill" data-id="${l.id}">✍️ Allenati su questo argomento <small>${doneLesson(l.id) ? "Già imparato ✓ · puoi continuare ad allenarti" : "Esercizi senza fine, finché non lo sai"}</small></button>
       <div class="vb-pn">${prev ? `<button data-vb="lesson" data-id="${prev.id}">‹ ${E(prev.title)}</button>` : "<span></span>"}${next ? `<button data-vb="lesson" data-id="${next.id}">${E(next.title)} ›</button>` : "<span></span>"}</div></div>`;
+  }
+  function drill(q) {
+    const cur = q.cur, answered = q.picked !== null, good = answered && q.picked === cur.correct, ok = q.win.filter(Boolean).length, num = q.n + (answered ? 0 : 1);
+    const dots = Array.from({ length: WIN }, (_, i) => `<i class="vb-dot${q.win[i] === true ? " ok" : q.win[i] === false ? " bad" : ""}"></i>`).join("");
+    const done = answered && q.masteredAt === q.n;
+    return `<div class="vb">${back("quit", "Esci dall'allenamento")}
+      <p class="vb-kicker">${E(q.title)} · allenamento senza fine · domanda ${num}</p>
+      <div class="vb-win" role="img" aria-label="Ultime risposte: ${ok} giuste su ${q.win.length}">${dots}</div>
+      <p class="vb-winl">Ultime ${WIN} risposte: ${ok} giuste su ${q.win.length}. Quando ne hai almeno ${NEED} su ${WIN} giuste, hai imparato l'argomento.</p>
+      <h2 class="vb-q">${E(cur.prompt)}</h2>${cur.sub ? `<p class="vb-qs${cur.kind === "fill" ? " gr" : ""}">${E(cur.sub)}</p>` : ""}
+      <div class="vb-opts" role="group" aria-label="Risposte">${cur.options.map((o, i) => `<button class="vb-o${answered ? (i === cur.correct ? " ok" : i === q.picked ? " bad" : " dim") : ""}" data-vb="ans" data-i="${i}" ${answered ? "disabled" : ""}><span>${"ABCD"[i]}</span>${E(o)}</button>`).join("")}</div>
+      <div class="vb-fb" aria-live="polite">${answered ? `<p class="${good ? "ok" : "bad"}"><b>${good ? "Esatto!" : "Non proprio."}</b> ${E(cur.why)}${good ? "" : " Questa domanda tornerà tra qualche risposta."}</p>
+        ${done ? `<p class="vb-res ok">Argomento imparato! 🎉 ${ok} giuste su ${WIN}. La lezione è segnata come completata: puoi continuare ad allenarti o tornare alla lezione.</p>` : ""}
+        <div class="vb-fbb"><button class="vb-mini" data-sp="${E(cur.say)}">🔊 Ascolta</button><button class="vb-wide primary" data-vb="next">${done ? "Continua ad allenarti" : "Avanti"} ›</button></div>
+        ${done ? `<div class="vb-fbb"><button class="vb-wide" data-vb="after">‹ Torna alla lezione</button></div>` : ""}` : ""}</div></div>`;
   }
   function quiz() {
     const q = st.quiz; if (!q) return hub();
+    if (q.endless) return drill(q);
     if (q.i >= q.qs.length) return result();
     const cur = q.qs[q.i], pct = Math.round((100 * q.i) / q.qs.length), answered = q.picked !== null;
     return `<div class="vb">${back("quit", "Esci dall'esercizio")}
@@ -174,7 +198,22 @@ window.Verbi = (() => {
   }
 
   // ---------- Avvio degli esercizi ----------
+  // Flusso infinito di domande su una lezione: i round si rigenerano (nuove opzioni sbagliate) e gli errori tornano dopo 3 risposte.
+  const round = (l, avoid) => { const r = shuffle(dedupe(fillQuestions(l).concat(autoQuestions(l)))); if (avoid && r.length > 1) { const t = r[r.length - 1]; if (t.prompt + "|" + t.sub === avoid) r.unshift(r.pop()); } return r; };
+  const reshuffle = (c) => { const right = c.options[c.correct], o = shuffle(c.options); return Object.assign({}, c, { options: o, correct: o.indexOf(right) }); };
+  function drawNext(q) {
+    if (q.retry.length && q.retry[0].due <= q.n) return q.retry.shift().item;
+    if (!q.pool.length) q.pool = round(q.lesson, q.cur ? q.cur.prompt + "|" + q.cur.sub : null);
+    return q.pool.pop();
+  }
+  function startDrill(id) {
+    const f = findLesson(id); if (!f) return;
+    const q = { kind: "drill", id, store: "lesson", sid: null, title: f.l.title, endless: true, lesson: f.l, pool: [], retry: [], win: [], n: 0, score: 0, picked: null, log: [], cur: null, masteredAt: -1 };
+    q.cur = drawNext(q); if (!q.cur) return toastSafe("Nessuna domanda disponibile");
+    st.quiz = q; set({ screen: "quiz" });
+  }
   function start(kind, id) {
+    if (kind === "drill") return startDrill(id);
     let qs, title, store = kind, sid = id;
     if (kind === "lesson") { const f = findLesson(id); if (!f) return; qs = lessonQuiz(f.l); title = f.l.title; }
     else if (kind === "test") { const s = findSection(id); if (!s) return; qs = poolQuiz(s.lessons, 12); title = "Test: " + s.it; }
@@ -185,14 +224,22 @@ window.Verbi = (() => {
   }
   function answer(i) {
     const q = st.quiz; if (!q || q.picked !== null) return;
-    const cur = q.qs[q.i];
+    const cur = q.endless ? q.cur : q.qs[q.i];
     q.picked = i; const ok = i === cur.correct; if (ok) q.score++;
     q.log.push({ ok, prompt: cur.prompt, sub: cur.sub, right: cur.options[cur.correct], why: cur.why });
+    if (q.endless) {
+      q.n++; q.win.push(ok); if (q.win.length > WIN) q.win.shift();
+      if (!ok) q.retry.push({ due: q.n + 3, item: reshuffle(cur) });
+      const good = q.win.filter(Boolean).length;
+      if (q.masteredAt < 0 && q.win.length >= WIN && good >= NEED) { q.masteredAt = q.n; rec(db.lessons, q.id, Math.round((100 * good) / WIN)); }
+    }
     render();
     const fb = view.querySelector(".vb-fb"); if (fb && fb.scrollIntoView) fb.scrollIntoView({ block: "nearest" });
   }
   function next() {
-    const q = st.quiz; q.i++; q.picked = null;
+    const q = st.quiz;
+    if (q.endless) { q.picked = null; q.cur = drawNext(q); return set({}); }
+    q.i++; q.picked = null;
     if (q.i >= q.qs.length) {
       const pct = Math.round((100 * q.score) / q.qs.length);
       if (q.store === "lesson") rec(db.lessons, q.id, pct); else if (q.store === "test") rec(db.tests, q.id, pct);
@@ -213,6 +260,7 @@ window.Verbi = (() => {
     if (a === "tr") { st.hideTr = !st.hideTr; return render(); }
     if (a === "dlgall") { const t = (b.dataset.t || "").split("|").filter(Boolean); try { if (typeof speakMany === "function") speakMany(t); } catch (e) { toastSafe("Audio non disponibile"); } return; }
     if (a === "quiz") return start("lesson", b.dataset.id);
+    if (a === "drill") return start("drill", b.dataset.id);
     if (a === "sectest") return start("test", b.dataset.id);
     if (a === "mixed") return start("mixed");
     if (a === "ans") return answer(+b.dataset.i);
@@ -226,6 +274,6 @@ window.Verbi = (() => {
     open, exportData, importData,
     summary: () => { const s = sections(); return { done: s.reduce((n, x) => n + doneCount(x), 0), total: s.reduce((n, x) => n + x.lessons.length, 0) }; },
     // aiuti per i test automatici (non usati dall'app)
-    _test: { correctIndex: () => st.quiz && st.quiz.qs[st.quiz.i] ? st.quiz.qs[st.quiz.i].correct : -1, lessonQuiz, poolQuiz, autoQuestions, fillQuestions, state: () => st, reset: () => { db = { v: 1, lessons: {}, tests: {} }; save(); } }
+    _test: { correctIndex: () => st.quiz && st.quiz.endless ? st.quiz.cur.correct : st.quiz && st.quiz.qs[st.quiz.i] ? st.quiz.qs[st.quiz.i].correct : -1, PRON_IT, lessonQuiz, poolQuiz, autoQuestions, fillQuestions, state: () => st, reset: () => { db = { v: 1, lessons: {}, tests: {} }; save(); } }
   };
 })();
