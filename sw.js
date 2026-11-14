@@ -1,9 +1,9 @@
-const CACHE = "ellinika-v34";
+const CACHE = "ellinika-v35";
 const AUDIO_CACHE = "ellinika-audio"; // separata: gli audio non si riscaricano a ogni nuova versione
 const IMG_CACHE = "ellinika-arete-img"; // separata: immagini di ARETE (statue/, esercizi/) messe dall'utente
 const FILES = ["./", "index.html", "style.css", "data.js", "lessons.js", "units.js", "path.js", "progress.js", "app.js", "ripasso.js", "letture.js", "extra.js", "layout.js", "forget.js", "leggere.js", "infinito.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
   "tank-battle.css", "tank-rules.js", "tank-arena.js", "tank-words.js", "tank-progress.js", "tank-battle.js",
-  "arete.css", "arete-data.js", "arete-db.js", "arete.js", "arete-workout.js", "arete-routines.js", "arete-diary.js", "arete-progress.js", "arete-library.js", "verbi.css", "verbi-data.js", "verbi-data-avere.js", "verbi-data-modali.js", "verbi.js", "verbi-data-quotidiani.js"];
+  "arete.css", "arete-data.js", "arete-db.js", "arete.js", "arete-workout.js", "arete-routines.js", "arete-diary.js", "arete-progress.js", "arete-library.js", "arete-swap.css", "arete-swap.js", "verbi.css", "verbi-data.js", "verbi-data-avere.js", "verbi-data-modali.js", "verbi.js", "verbi-data-quotidiani.js"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((file) => new Request(file, { cache: "reload" })))).then(() => self.skipWaiting()));

@@ -32,7 +32,7 @@
       <label class="ar-lbl">Descrizione<input class="ar-in" id="rtDesc" maxlength="300" value="${esc(ed.description)}" placeholder="Facoltativa" autocomplete="off"></label>
       <p class="ar-lbl">Giorni in cui la fai (compare nella home)</p><div class="ar-chips">${DAYS.map(([d, n]) => `<button class="ar-chip${ed.days.includes(d) ? " on" : ""}" data-act="rt-day" data-d="${d}" aria-pressed="${ed.days.includes(d)}">${n}</button>`).join("")}</div>
       <h2 class="ar-h2">Esercizi</h2>`;
-    h += ed.items.length ? ed.items.map((it, i) => `<div class="ar-card rt-item"><div class="rt-item-top"><b>${i + 1}. ${esc(it.name)}</b><span><button class="ar-dots" data-act="rt-up" data-i="${i}" ${i === 0 ? "disabled" : ""} aria-label="Sposta su">↑</button><button class="ar-dots" data-act="rt-down" data-i="${i}" ${i === ed.items.length - 1 ? "disabled" : ""} aria-label="Sposta giù">↓</button><button class="ar-dots danger" data-act="rt-rm" data-i="${i}" aria-label="Rimuovi">✕</button></span></div>
+    h += ed.items.length ? ed.items.map((it, i) => `<div class="ar-card rt-item"><div class="rt-item-top"><b>${i + 1}. ${esc(it.name)}</b><span><button class="ar-dots" data-act="rt-up" data-i="${i}" ${i === 0 ? "disabled" : ""} aria-label="Sposta su">↑</button><button class="ar-dots" data-act="rt-down" data-i="${i}" ${i === ed.items.length - 1 ? "disabled" : ""} aria-label="Sposta giù">↓</button><button class="ar-dots" data-act="rt-swap" data-i="${i}" aria-label="Cambia esercizio">⇄</button><button class="ar-dots danger" data-act="rt-rm" data-i="${i}" aria-label="Rimuovi">✕</button></span></div>
         <div class="rt-grid"><label>Serie<input class="ar-in n" id="rtS${i}" inputmode="numeric" value="${esc(it.sets)}"></label><label>Rip. previste<input class="ar-in n" id="rtR${i}" value="${esc(it.reps)}" placeholder="8-12"></label><label>Recupero (s)<input class="ar-in n" id="rtT${i}" inputmode="numeric" value="${esc(it.rest)}"></label></div>
         <input class="ar-in" id="rtN${i}" maxlength="500" value="${esc(it.notes)}" placeholder="Note (facoltative)"></div>`).join("")
       : `<p class="ar-note">Nessun esercizio: aggiungine almeno uno.</p>`;
@@ -51,6 +51,7 @@
     "rt-add": () => { sync(); A.pickExercise((ids) => { ids.forEach((id) => { const e = DB.exercises.get(id); ed.items.push({ exerciseId: id, name: e.name, sets: 3, reps: "8-12", rest: DB.settings.get().rest, notes: "" }); }); A.render(); }, "Aggiungi alla routine"); },
     "rt-up": (el) => { sync(); const i = +el.dataset.i; [ed.items[i - 1], ed.items[i]] = [ed.items[i], ed.items[i - 1]]; A.render(); },
     "rt-down": (el) => { sync(); const i = +el.dataset.i; [ed.items[i + 1], ed.items[i]] = [ed.items[i], ed.items[i + 1]]; A.render(); },
+    "rt-swap": (el) => { sync(); const i = +el.dataset.i, it = ed.items[i]; A.swap.open({ exerciseId: it.exerciseId, onPick: (id) => { const e = DB.exercises.get(id); it.exerciseId = id; it.name = e.name; A.render(); } }); },
     "rt-rm": (el) => { sync(); ed.items.splice(+el.dataset.i, 1); A.render(); },
     "rt-cancel": () => { if (!ed.items.length && !ed.name || confirm("Annullare le modifiche?")) { ed = null; A.show("routines"); } },
     "rt-save": () => {

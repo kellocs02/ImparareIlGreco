@@ -153,6 +153,7 @@
       const w = DB.workouts.active(), x = w.exercises.find((y) => y.id === +el.dataset.we), i = w.exercises.indexOf(x);
       A.modal(`<p class="ar-note">${esc(x.exerciseName)}</p>
         <div class="ar-btnrow"><button class="ar-btn ghost" data-act="ex-move" data-we="${x.id}" data-d="-1" ${i === 0 ? "disabled" : ""}>↑ Sposta su</button><button class="ar-btn ghost" data-act="ex-move" data-we="${x.id}" data-d="1" ${i === w.exercises.length - 1 ? "disabled" : ""}>↓ Sposta giù</button></div>
+        <button class="ar-btn ghost" data-act="ex-swap" data-we="${x.id}">⇄ Cambia con un altro esercizio</button>
         <label class="ar-lbl">Recupero dopo ogni serie (secondi)<input class="ar-in" id="exRest" inputmode="numeric" value="${x.plan && x.plan.rest != null ? x.plan.rest : DB.settings.get().rest}"></label>
         <button class="ar-btn" data-act="ex-rest" data-we="${x.id}">Salva recupero</button>
         <button class="ar-btn ghost danger" data-act="ex-del" data-we="${x.id}">Rimuovi dall'allenamento</button>`, { title: "Esercizio" });
